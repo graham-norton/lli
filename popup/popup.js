@@ -1,3 +1,53 @@
+const OPENROUTER_FREE_MODELS = [
+  { id: 'kwaipilot/kat-coder-pro:free', label: 'Kwaipilot: KAT-Coder-Pro V1 (free)' },
+  { id: 'nvidia/nemotron-nano-12b-v2-vl:free', label: 'NVIDIA: Nemotron Nano 12B 2 VL (free)' },
+  { id: 'alibaba/tongyi-deepresearch-30b-a3b:free', label: 'Tongyi DeepResearch 30B A3B (free)' },
+  { id: 'meituan/longcat-flash-chat:free', label: 'Meituan: LongCat Flash Chat (free)' },
+  { id: 'nvidia/nemotron-nano-9b-v2:free', label: 'NVIDIA: Nemotron Nano 9B V2 (free)' },
+  { id: 'deepseek/deepseek-chat-v3.1:free', label: 'DeepSeek: DeepSeek V3.1 (free)' },
+  { id: 'openai/gpt-oss-20b:free', label: 'OpenAI: GPT-OSS 20B (free)' },
+  { id: 'z-ai/glm-4.5-air:free', label: 'Z.AI: GLM 4.5 Air (free)' },
+  { id: 'qwen/qwen3-coder:free', label: 'Qwen: Qwen3 Coder 480B A35B (free)' },
+  { id: 'moonshotai/kimi-k2:free', label: 'MoonshotAI: Kimi K2 0711 (free)' },
+  { id: 'cognitivecomputations/dolphin-mistral-24b-venice-edition:free', label: 'Venice: Uncensored (free)' },
+  { id: 'google/gemma-3n-e2b-it:free', label: 'Google: Gemma 3n 2B (free)' },
+  { id: 'tngtech/deepseek-r1t2-chimera:free', label: 'TNG: DeepSeek R1T2 Chimera (free)' },
+  { id: 'mistralai/mistral-small-3.2-24b-instruct:free', label: 'Mistral: Small 3.2 24B (free)' },
+  { id: 'deepseek/deepseek-r1-0528-qwen3-8b:free', label: 'DeepSeek: R1 0528 Qwen3 8B (free)' },
+  { id: 'deepseek/deepseek-r1-0528:free', label: 'DeepSeek: R1 0528 (free)' },
+  { id: 'google/gemma-3n-e4b-it:free', label: 'Google: Gemma 3n 4B (free)' },
+  { id: 'meta-llama/llama-3.3-8b-instruct:free', label: 'Meta: Llama 3.3 8B Instruct (free)' },
+  { id: 'qwen/qwen3-4b:free', label: 'Qwen: Qwen3 4B (free)' },
+  { id: 'qwen/qwen3-30b-a3b:free', label: 'Qwen: Qwen3 30B A3B (free)' },
+  { id: 'qwen/qwen3-14b:free', label: 'Qwen: Qwen3 14B (free)' },
+  { id: 'qwen/qwen3-235b-a22b:free', label: 'Qwen: Qwen3 235B A22B (free)' },
+  { id: 'tngtech/deepseek-r1t-chimera:free', label: 'TNG: DeepSeek R1T Chimera (free)' },
+  { id: 'microsoft/mai-ds-r1:free', label: 'Microsoft: MAI DS R1 (free)' },
+  { id: 'arliai/qwq-32b-arliai-rpr-v1:free', label: 'ArliAI: QwQ 32B RpR v1 (free)' },
+  { id: 'agentica-org/deepcoder-14b-preview:free', label: 'Agentica: Deepcoder 14B Preview (free)' },
+  { id: 'meta-llama/llama-4-maverick:free', label: 'Meta: Llama 4 Maverick (free)' },
+  { id: 'meta-llama/llama-4-scout:free', label: 'Meta: Llama 4 Scout (free)' },
+  { id: 'qwen/qwen2.5-vl-32b-instruct:free', label: 'Qwen: Qwen2.5 VL 32B Instruct (free)' },
+  { id: 'deepseek/deepseek-chat-v3-0324:free', label: 'DeepSeek: DeepSeek V3 0324 (free)' },
+  { id: 'mistralai/mistral-small-3.1-24b-instruct:free', label: 'Mistral: Small 3.1 24B (free)' },
+  { id: 'google/gemma-3-4b-it:free', label: 'Google: Gemma 3 4B (free)' },
+  { id: 'google/gemma-3-12b-it:free', label: 'Google: Gemma 3 12B (free)' },
+  { id: 'google/gemma-3-27b-it:free', label: 'Google: Gemma 3 27B (free)' },
+  { id: 'mistralai/mistral-small-24b-instruct-2501:free', label: 'Mistral: Small 3 (free)' },
+  { id: 'deepseek/deepseek-r1-distill-llama-70b:free', label: 'DeepSeek: R1 Distill Llama 70B (free)' },
+  { id: 'deepseek/deepseek-r1:free', label: 'DeepSeek: R1 (free)' },
+  { id: 'google/gemini-2.0-flash-exp:free', label: 'Google: Gemini 2.0 Flash Experimental (free)' },
+  { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Meta: Llama 3.3 70B Instruct (free)' },
+  { id: 'qwen/qwen-2.5-coder-32b-instruct:free', label: 'Qwen2.5 Coder 32B Instruct (free)' },
+  { id: 'meta-llama/llama-3.2-3b-instruct:free', label: 'Meta: Llama 3.2 3B Instruct (free)' },
+  { id: 'qwen/qwen-2.5-72b-instruct:free', label: 'Qwen2.5 72B Instruct (free)' },
+  { id: 'nousresearch/hermes-3-llama-3.1-405b:free', label: 'Nous: Hermes 3 405B Instruct (free)' },
+  { id: 'mistralai/mistral-nemo:free', label: 'Mistral: Nemo (free)' },
+  { id: 'mistralai/mistral-7b-instruct:free', label: 'Mistral: 7B Instruct (free)' }
+];
+
+const OPENROUTER_DEFAULT_MODEL = OPENROUTER_FREE_MODELS[0]?.id || '';
+
 // Popup UI Controller
 class PopupController {
   constructor() {
@@ -30,12 +80,13 @@ class PopupController {
       autoScrollCycles: 6,
       aiRelevanceEnabled: false,
       companyProfile: '',
-      openRouterModel: 'openrouter/openai/gpt-4o-mini'
+      openRouterModel: OPENROUTER_DEFAULT_MODEL
     };
   }
 
   async init() {
     await this.loadData();
+    this.populateModelOptions();
     this.setupEventListeners();
     this.setupTabs();
     this.renderKeywords();
@@ -251,6 +302,19 @@ class PopupController {
     this.renderAutomationSettings();
   }
 
+  populateModelOptions() {
+    const select = document.getElementById('openrouter-model');
+    if (!select) return;
+
+    select.innerHTML = '';
+    OPENROUTER_FREE_MODELS.forEach((model) => {
+      const option = document.createElement('option');
+      option.value = model.id;
+      option.textContent = model.label;
+      select.appendChild(option);
+    });
+  }
+
   renderAutomationSettings() {
     const profileInput = document.getElementById('company-profile');
     if (profileInput) {
@@ -265,7 +329,18 @@ class PopupController {
     document.getElementById('ai-filter').checked = !!this.settings.aiRelevanceEnabled;
     document.getElementById('search-delay').value = delaySeconds;
     document.getElementById('scroll-cycles').value = scrollCycles;
-    document.getElementById('openrouter-model').value = this.settings.openRouterModel || 'openrouter/openai/gpt-4o-mini';
+    const modelSelect = document.getElementById('openrouter-model');
+    const desiredModel = this.settings.openRouterModel || OPENROUTER_DEFAULT_MODEL;
+    if (modelSelect) {
+      const exists = OPENROUTER_FREE_MODELS.some((model) => model.id === desiredModel);
+      if (!exists && desiredModel) {
+        const option = document.createElement('option');
+        option.value = desiredModel;
+        option.textContent = `${desiredModel} (custom)`;
+        modelSelect.appendChild(option);
+      }
+      modelSelect.value = desiredModel;
+    }
     this.updateOpenRouterStatus();
   }
 
