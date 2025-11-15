@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinkedIn Lead Finder</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <h1>LinkedIn Lead Finder</h1>
+      <p class="subtitle">Extract leads from LinkedIn posts</p>
+    </header>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="keywords">Keywords</button>
+      <button class="tab-btn" data-tab="sheets">Google Sheets</button>
+      <button class="tab-btn" data-tab="stats">Statistics</button>
+      <button class="tab-btn" data-tab="automation">Automation & AI</button>
+      <button class="tab-btn" data-tab="settings">Settings</button>
+    </div>
+
+    <!-- Keywords Tab -->
+    <div class="tab-content active" id="keywords">
+      <div class="section">
+        <h3>Manage Keywords</h3>
+        <div class="input-group">
+          <input type="text" id="keyword-input" placeholder="Enter keyword..." />
+          <button id="add-keyword-btn" class="btn-primary">Add</button>
+        </div>
+        <div class="keyword-list" id="keyword-list">
+          <!-- Keywords will be dynamically added here -->
+        </div>
+        <div class="keyword-options">
+          <label>
+            <input type="checkbox" id="case-sensitive" />
+            Case sensitive
+          </label>
+          <label>
+            <input type="checkbox" id="whole-word" />
+            Whole word only
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Google Sheets Tab -->
+    <div class="tab-content" id="sheets">
+      <div class="section">
+        <h3>Google Sheets Configuration</h3>
+        <div class="auth-status" id="auth-status">
+          <span class="status-indicator" id="status-indicator"></span>
+          <span id="auth-text">Not connected</span>
+        </div>
+        <button id="auth-btn" class="btn-primary">Connect Google Account</button>
+
+        <div class="sheet-config" id="sheet-config" style="display: none;">
+          <label for="sheet-url">Google Sheet URL or ID:</label>
+          <input type="text" id="sheet-url" placeholder="Enter Sheet URL or ID..." />
+          <button id="save-sheet-btn" class="btn-primary">Save</button>
+          <button id="test-connection-btn" class="btn-secondary">Test Connection</button>
+        </div>
+
+        <div class="auto-sync">
+          <label>
+            <input type="checkbox" id="auto-sync" />
+            Auto-sync to Google Sheets
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Statistics Tab -->
+    <div class="tab-content" id="stats">
+      <div class="section">
+        <h3>Statistics</h3>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="total-leads">0</div>
+            <div class="stat-label">Total Leads</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="emails-found">0</div>
+            <div class="stat-label">Emails Found</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="phones-found">0</div>
+            <div class="stat-label">Phone Numbers</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="exported-count">0</div>
+            <div class="stat-label">Exported</div>
+          </div>
+        </div>
+        <div class="last-sync">
+          Last sync: <span id="last-sync-time">Never</span>
+        </div>
+        <div class="action-buttons">
+          <button id="export-now-btn" class="btn-primary">Export Now</button>
+          <button id="clear-data-btn" class="btn-danger">Clear All Data</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Automation Tab -->
+    <div class="tab-content" id="automation">
+      <div class="section">
+        <h3>Lead Profile</h3>
+        <p class="section-description">Describe the companies, roles, or offers you want the AI to prioritize.</p>
+        <textarea id="company-profile" rows="4" placeholder="Example: SaaS startups in finance, hiring SDRs in North America. Focus on posts asking for outbound email help."></textarea>
+      </div>
+
+      <div class="section">
+        <h3>Browsing Automation</h3>
+        <div class="toggle-row">
+          <label for="auto-search">
+            <input type="checkbox" id="auto-search" />
+            Auto-search keywords in LinkedIn search bar
+          </label>
+        </div>
+        <div class="toggle-row">
+          <label for="auto-scroll">
+            <input type="checkbox" id="auto-scroll" />
+            Auto-scroll search results
+          </label>
+        </div>
+        <div class="setting-grid">
+          <div>
+            <label for="search-delay">Delay between keyword searches (seconds)</label>
+            <input type="number" id="search-delay" min="5" max="120" step="5" value="20" />
+          </div>
+          <div>
+            <label for="scroll-cycles">Scroll cycles per search</label>
+            <input type="number" id="scroll-cycles" min="1" max="30" value="6" />
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>AI Relevance (OpenRouter)</h3>
+        <div class="toggle-row">
+          <label for="ai-filter">
+            <input type="checkbox" id="ai-filter" />
+            Use AI to qualify leads before saving
+          </label>
+        </div>
+        <div class="setting-item">
+          <label for="openrouter-model">Model</label>
+          <select id="openrouter-model">
+            <option value="openrouter/openai/gpt-4o-mini">GPT-4o Mini (OpenAI via OpenRouter)</option>
+            <option value="openrouter/anthropic/claude-3.5-sonnet:beta">Claude 3.5 Sonnet (beta)</option>
+            <option value="openrouter/meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B Instruct</option>
+          </select>
+        </div>
+        <div class="setting-item">
+          <label for="openrouter-key">OpenRouter API Key</label>
+          <input type="password" id="openrouter-key" placeholder="sk-or-v1-..." />
+          <div class="action-buttons stacked">
+            <button id="save-openrouter-key" class="btn-primary">Save API Key</button>
+            <button id="clear-openrouter-key" class="btn-secondary">Clear Key</button>
+          </div>
+          <p class="fine-print" id="openrouter-status">API key not configured</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div class="tab-content" id="settings">
+      <div class="section">
+        <h3>General Settings</h3>
+
+        <div class="setting-item">
+          <label for="scan-mode">Scan Mode:</label>
+          <select id="scan-mode">
+            <option value="auto">Automatic (Real-time)</option>
+            <option value="manual">Manual</option>
+          </select>
+        </div>
+
+        <div class="setting-item">
+          <label>
+            <input type="checkbox" id="enable-notifications" checked />
+            Enable notifications
+          </label>
+        </div>
+
+        <div class="setting-item">
+          <label>
+            <input type="checkbox" id="highlight-posts" checked />
+            Highlight matched posts
+          </label>
+        </div>
+
+        <div class="setting-item">
+          <label>
+            <input type="checkbox" id="scan-comments" />
+            Scan comments for contacts
+          </label>
+        </div>
+
+        <div class="action-buttons">
+          <button id="save-settings-btn" class="btn-primary">Save Settings</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <span id="status-message">Ready</span>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

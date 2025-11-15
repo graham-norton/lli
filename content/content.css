@@ -1,0 +1,255 @@
+/* LinkedIn Lead Finder - Content Styles */
+
+/* Matched Post Highlight */
+.llf-matched-post {
+  position: relative;
+  border: 2px solid #0077b5 !important;
+  border-radius: 8px !important;
+  background: rgba(0, 119, 181, 0.02) !important;
+}
+
+/* Match Badge */
+.llf-match-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #0077b5;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  z-index: 100;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.llf-match-badge::before {
+  content: "✓";
+  font-size: 12px;
+}
+
+/* Contact Info Badge */
+.llf-contact-badge {
+  position: absolute;
+  top: 40px;
+  right: 10px;
+  background: #4caf50;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 500;
+  z-index: 100;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Keyword Highlight */
+.keyword-highlight {
+  background: rgba(255, 235, 59, 0.3);
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+/* Processing Indicator */
+.llf-processing {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 10000;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  color: #333;
+}
+
+.llf-processing::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  border: 2px solid #0077b5;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: llf-spin 0.8s linear infinite;
+}
+
+@keyframes llf-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Success Notification */
+.llf-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: white;
+  padding: 16px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  max-width: 300px;
+  animation: llf-slideIn 0.3s ease-out;
+}
+
+.llf-notification.success {
+  border-left: 4px solid #4caf50;
+}
+
+.llf-notification.error {
+  border-left: 4px solid #f44336;
+}
+
+.llf-notification-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #333;
+}
+
+.llf-notification-message {
+  color: #666;
+  font-size: 12px;
+}
+
+@keyframes llf-slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Post Actions Overlay */
+.llf-post-actions {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  display: flex;
+  gap: 8px;
+  z-index: 100;
+}
+
+.llf-action-btn {
+  background: white;
+  border: 1px solid #ddd;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+  color: #666;
+}
+
+.llf-action-btn:hover {
+  background: #f5f5f5;
+  border-color: #0077b5;
+  color: #0077b5;
+}
+
+/* Lead Details Panel */
+.llf-details-panel {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  font-size: 12px;
+  border: 1px solid #e0e0e0;
+}
+
+.llf-details-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #333;
+  font-size: 13px;
+}
+
+.llf-detail-item {
+  margin-bottom: 6px;
+  display: flex;
+  gap: 8px;
+}
+
+.llf-detail-label {
+  font-weight: 500;
+  color: #666;
+  min-width: 80px;
+}
+
+.llf-detail-value {
+  color: #333;
+  word-break: break-all;
+}
+
+/* Stats Counter (floating) */
+.llf-stats-counter {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  background: white;
+  padding: 12px 16px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  min-width: 150px;
+}
+
+.llf-stats-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #333;
+  font-size: 13px;
+}
+
+.llf-stat-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  color: #666;
+}
+
+.llf-stat-value {
+  font-weight: 600;
+  color: #0077b5;
+}
+
+/* Hide by default */
+.llf-stats-counter.hidden {
+  display: none;
+}
+
+/* Minimized state */
+.llf-stats-counter.minimized {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.llf-stats-counter.minimized .llf-stats-content {
+  display: none;
+}
+
+.llf-stats-counter.minimized::after {
+  content: "📊";
+  font-size: 20px;
+}

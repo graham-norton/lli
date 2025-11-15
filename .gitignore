@@ -1,0 +1,42 @@
+# Chrome Extension specific
+*.crx
+*.pem
+*.zip
+
+# Icons (if using custom icons)
+# icons/*.png
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment files
+.env
+.env.local
+
+# Test files
+test/
+*.test.js
+
+# Build files
+build/
+dist/
+
+# Dependencies (if using npm)
+node_modules/
+package-lock.json
+
+# Temporary files
+tmp/
+temp/

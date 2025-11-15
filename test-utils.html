@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Utilities - LinkedIn Lead Finder</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1000px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #0077b5;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 13px;
+    }
+    button {
+      background: #0077b5;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 10px 5px 10px 0;
+    }
+    button:hover {
+      background: #005885;
+    }
+    .results {
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 4px;
+      margin-top: 15px;
+      border: 1px solid #e0e0e0;
+    }
+    .results h3 {
+      margin-top: 0;
+      color: #333;
+    }
+    .result-item {
+      background: #e7f3f8;
+      padding: 8px 12px;
+      margin: 5px 0;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 13px;
+    }
+    .empty {
+      color: #999;
+      font-style: italic;
+    }
+    .success {
+      color: #4caf50;
+      font-weight: bold;
+    }
+    .error {
+      color: #f44336;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>LinkedIn Lead Finder - Utility Testing</h1>
+  <p>Test the email and phone extraction utilities and keyword matching logic.</p>
+
+  <!-- Email Extraction Test -->
+  <div class="container">
+    <h2>Email Extraction Test</h2>
+    <textarea id="emailText" placeholder="Paste text containing emails here...">
+Contact me at john.doe@example.com or support@company.co.uk
+You can also reach out to sales@business.org for inquiries.
+    </textarea>
+    <button onclick="testEmailExtraction()">Extract Emails</button>
+    <div id="emailResults" class="results" style="display: none;">
+      <h3>Extracted Emails:</h3>
+      <div id="emailList"></div>
+    </div>
+  </div>
+
+  <!-- Phone Extraction Test -->
+  <div class="container">
+    <h2>Phone Number Extraction Test</h2>
+    <textarea id="phoneText" placeholder="Paste text containing phone numbers here...">
+Call me at (555) 123-4567 or 555-987-6543
+International: +1-234-567-8900 or +44 20 7946 0958
+    </textarea>
+    <button onclick="testPhoneExtraction()">Extract Phone Numbers</button>
+    <div id="phoneResults" class="results" style="display: none;">
+      <h3>Extracted Phone Numbers:</h3>
+      <div id="phoneList"></div>
+    </div>
+  </div>
+
+  <!-- Keyword Matching Test -->
+  <div class="container">
+    <h2>Keyword Matching Test</h2>
+    <label>
+      <strong>Keywords (comma-separated):</strong>
+    </label>
+    <input type="text" id="keywords" placeholder="hiring, developer, remote"
+           style="width: 100%; padding: 8px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px;">
+
+    <div style="margin: 10px 0;">
+      <label>
+        <input type="checkbox" id="caseSensitive"> Case Sensitive
+      </label>
+      <label style="margin-left: 20px;">
+        <input type="checkbox" id="wholeWord"> Whole Word Only
+      </label>
+    </div>
+
+    <textarea id="matchText" placeholder="Paste text to search for keywords...">
+We are hiring a senior developer for our remote team.
+Looking for talented engineers to join our startup.
+Full-time position available for experienced programmers.
+    </textarea>
+    <button onclick="testKeywordMatching()">Match Keywords</button>
+    <div id="matchResults" class="results" style="display: none;">
+      <h3>Match Results:</h3>
+      <div id="matchList"></div>
+    </div>
+  </div>
+
+  <!-- Combined Test -->
+  <div class="container">
+    <h2>Combined Test (Full Lead Extraction)</h2>
+    <label>
+      <strong>Keywords (comma-separated):</strong>
+    </label>
+    <input type="text" id="combinedKeywords" value="hiring, developer, remote"
+           style="width: 100%; padding: 8px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px;">
+
+    <textarea id="combinedText" placeholder="Paste LinkedIn post text here...">
+🚀 We are hiring a Senior Full-Stack Developer!
+
+Looking for an experienced developer to join our remote team.
+Must have 5+ years of experience with React and Node.js.
+
+Interested? Contact us at careers@techcompany.com or call (555) 123-4567
+
+Apply now! 📧
+    </textarea>
+    <button onclick="testCombined()">Extract Full Lead</button>
+    <div id="combinedResults" class="results" style="display: none;">
+      <h3>Lead Extraction Results:</h3>
+      <div id="combinedList"></div>
+    </div>
+  </div>
+
+  <!-- Load utility scripts -->
+  <script src="utils/extractor.js"></script>
+  <script src="utils/matcher.js"></script>
+
+  <script>
+    // Test Email Extraction
+    function testEmailExtraction() {
+      const text = document.getElementById('emailText').value;
+      const extractor = new ContactExtractor();
+      const emails = extractor.extractEmails(text);
+
+      const resultsDiv = document.getElementById('emailResults');
+      const listDiv = document.getElementById('emailList');
+
+      resultsDiv.style.display = 'block';
+
+      if (emails.length === 0) {
+        listDiv.innerHTML = '<div class="empty">No emails found</div>';
+      } else {
+        listDiv.innerHTML = emails.map(email =>
+          `<div class="result-item">✓ ${email}</div>`
+        ).join('');
+      }
+    }
+
+    // Test Phone Extraction
+    function testPhoneExtraction() {
+      const text = document.getElementById('phoneText').value;
+      const extractor = new ContactExtractor();
+      const phones = extractor.extractPhones(text);
+
+      const resultsDiv = document.getElementById('phoneResults');
+      const listDiv = document.getElementById('phoneList');
+
+      resultsDiv.style.display = 'block';
+
+      if (phones.length === 0) {
+        listDiv.innerHTML = '<div class="empty">No phone numbers found</div>';
+      } else {
+        listDiv.innerHTML = phones.map(phone =>
+          `<div class="result-item">✓ ${phone}</div>`
+        ).join('');
+      }
+    }
+
+    // Test Keyword Matching
+    function testKeywordMatching() {
+      const keywordsInput = document.getElementById('keywords').value;
+      const text = document.getElementById('matchText').value;
+      const caseSensitive = document.getElementById('caseSensitive').checked;
+      const wholeWord = document.getElementById('wholeWord').checked;
+
+      const keywords = keywordsInput.split(',').map(k => k.trim()).filter(k => k);
+
+      const matcher = new KeywordMatcher(keywords, { caseSensitive, wholeWord });
+      const result = matcher.match(text);
+
+      const resultsDiv = document.getElementById('matchResults');
+      const listDiv = document.getElementById('matchList');
+
+      resultsDiv.style.display = 'block';
+
+      if (result.matched) {
+        listDiv.innerHTML = `
+          <div class="success">✓ Match found!</div>
+          <div style="margin-top: 10px;">
+            <strong>Matched Keywords:</strong><br>
+            ${result.keywords.map(k => `<div class="result-item">${k}</div>`).join('')}
+          </div>
+        `;
+      } else {
+        listDiv.innerHTML = '<div class="error">✗ No matches found</div>';
+      }
+    }
+
+    // Test Combined (Full Lead)
+    function testCombined() {
+      const keywordsInput = document.getElementById('combinedKeywords').value;
+      const text = document.getElementById('combinedText').value;
+
+      const keywords = keywordsInput.split(',').map(k => k.trim()).filter(k => k);
+
+      const extractor = new ContactExtractor();
+      const matcher = new KeywordMatcher(keywords);
+
+      const matchResult = matcher.match(text);
+      const contacts = extractor.extractAll(text);
+
+      const resultsDiv = document.getElementById('combinedResults');
+      const listDiv = document.getElementById('combinedList');
+
+      resultsDiv.style.display = 'block';
+
+      let html = '';
+
+      if (matchResult.matched) {
+        html += `<div class="success">✓ Post matches keywords!</div>`;
+        html += `<div style="margin: 10px 0;"><strong>Matched Keywords:</strong><br>`;
+        html += matchResult.keywords.map(k => `<span class="result-item" style="display: inline-block; margin: 3px;">${k}</span>`).join('');
+        html += `</div>`;
+      } else {
+        html += `<div class="error">✗ No keyword matches</div>`;
+      }
+
+      html += `<div style="margin: 15px 0;"><strong>Contact Information:</strong></div>`;
+
+      if (contacts.emails.length > 0) {
+        html += `<div><strong>Emails (${contacts.emails.length}):</strong></div>`;
+        html += contacts.emails.map(email => `<div class="result-item">📧 ${email}</div>`).join('');
+      }
+
+      if (contacts.phones.length > 0) {
+        html += `<div style="margin-top: 10px;"><strong>Phone Numbers (${contacts.phones.length}):</strong></div>`;
+        html += contacts.phones.map(phone => `<div class="result-item">📱 ${phone}</div>`).join('');
+      }
+
+      if (contacts.emails.length === 0 && contacts.phones.length === 0) {
+        html += `<div class="empty">No contact information found</div>`;
+      }
+
+      // Summary
+      html += `<div style="margin-top: 20px; padding: 15px; background: #e7f3f8; border-radius: 4px;">`;
+      html += `<strong>Summary:</strong><br>`;
+      html += `Match: ${matchResult.matched ? '✓ Yes' : '✗ No'}<br>`;
+      html += `Keywords Found: ${matchResult.keywords.length}<br>`;
+      html += `Emails: ${contacts.emails.length}<br>`;
+      html += `Phones: ${contacts.phones.length}<br>`;
+      html += `Would Export: ${matchResult.matched && (contacts.emails.length > 0 || contacts.phones.length > 0) ? '✓ Yes' : '✗ No'}`;
+      html += `</div>`;
+
+      listDiv.innerHTML = html;
+    }
+  </script>
+</body>
+</html>

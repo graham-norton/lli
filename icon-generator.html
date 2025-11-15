@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Icon Generator - LinkedIn Lead Finder</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #0077b5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .icons {
+      display: flex;
+      gap: 30px;
+      margin: 30px 0;
+      flex-wrap: wrap;
+    }
+    .icon-preview {
+      text-align: center;
+    }
+    canvas {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin: 10px 0;
+    }
+    button {
+      background: #0077b5;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin: 5px;
+    }
+    button:hover {
+      background: #005885;
+    }
+    .instructions {
+      background: #e7f3f8;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    .instructions h3 {
+      margin-top: 0;
+      color: #0077b5;
+    }
+    .color-input {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin: 15px 0;
+    }
+    input[type="color"] {
+      width: 50px;
+      height: 40px;
+      border: none;
+      cursor: pointer;
+    }
+    input[type="text"] {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      width: 200px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>LinkedIn Lead Finder - Icon Generator</h1>
+
+    <div class="instructions">
+      <h3>Instructions</h3>
+      <ol>
+        <li>Customize the icon colors and text below</li>
+        <li>Click "Generate Icons" to create the icons</li>
+        <li>Click "Download" buttons to save each icon</li>
+        <li>Save the icons in the <code>icons/</code> folder as:
+          <ul>
+            <li>icon16.png</li>
+            <li>icon48.png</li>
+            <li>icon128.png</li>
+          </ul>
+        </li>
+        <li>Reload the extension in Chrome</li>
+      </ol>
+    </div>
+
+    <div class="color-input">
+      <label>Background Color:</label>
+      <input type="color" id="bgColor" value="#0077b5">
+      <label>Text Color:</label>
+      <input type="color" id="textColor" value="#ffffff">
+      <label>Icon Text:</label>
+      <input type="text" id="iconText" value="LLF" maxlength="3">
+      <button onclick="generateIcons()">Generate Icons</button>
+    </div>
+
+    <div class="icons">
+      <div class="icon-preview">
+        <h3>16x16</h3>
+        <canvas id="icon16" width="16" height="16"></canvas>
+        <br>
+        <button onclick="downloadIcon('icon16', 'icon16.png')">Download 16x16</button>
+      </div>
+
+      <div class="icon-preview">
+        <h3>48x48</h3>
+        <canvas id="icon48" width="48" height="48"></canvas>
+        <br>
+        <button onclick="downloadIcon('icon48', 'icon48.png')">Download 48x48</button>
+      </div>
+
+      <div class="icon-preview">
+        <h3>128x128</h3>
+        <canvas id="icon128" width="128" height="128"></canvas>
+        <br>
+        <button onclick="downloadIcon('icon128', 'icon128.png')">Download 128x128</button>
+      </div>
+    </div>
+
+    <button onclick="downloadAll()" style="background: #4caf50; font-size: 16px; padding: 12px 24px;">
+      Download All Icons
+    </button>
+  </div>
+
+  <script>
+    function generateIcons() {
+      const bgColor = document.getElementById('bgColor').value;
+      const textColor = document.getElementById('textColor').value;
+      const iconText = document.getElementById('iconText').value || 'LLF';
+
+      // Generate each size
+      drawIcon('icon16', 16, bgColor, textColor, iconText);
+      drawIcon('icon48', 48, bgColor, textColor, iconText);
+      drawIcon('icon128', 128, bgColor, textColor, iconText);
+    }
+
+    function drawIcon(canvasId, size, bgColor, textColor, text) {
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas.getContext('2d');
+
+      // Clear canvas
+      ctx.clearRect(0, 0, size, size);
+
+      // Draw background with gradient
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, bgColor);
+      gradient.addColorStop(1, adjustBrightness(bgColor, -20));
+      ctx.fillStyle = gradient;
+
+      // Rounded rectangle
+      drawRoundedRect(ctx, 0, 0, size, size, size * 0.2);
+
+      // Draw border
+      ctx.strokeStyle = adjustBrightness(bgColor, -30);
+      ctx.lineWidth = size * 0.05;
+      ctx.stroke();
+
+      // Draw text
+      ctx.fillStyle = textColor;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      // Font size based on canvas size
+      const fontSize = size * 0.4;
+      ctx.font = `bold ${fontSize}px Arial`;
+
+      ctx.fillText(text, size / 2, size / 2);
+
+      // Add small accent
+      ctx.fillStyle = textColor;
+      ctx.globalAlpha = 0.3;
+      ctx.beginPath();
+      ctx.arc(size * 0.8, size * 0.2, size * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    function drawRoundedRect(ctx, x, y, width, height, radius) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + width - radius, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+      ctx.lineTo(x + width, y + height - radius);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      ctx.lineTo(x + radius, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function adjustBrightness(color, percent) {
+      const num = parseInt(color.replace('#', ''), 16);
+      const amt = Math.round(2.55 * percent);
+      const R = (num >> 16) + amt;
+      const G = (num >> 8 & 0x00FF) + amt;
+      const B = (num & 0x0000FF) + amt;
+      return '#' + (
+        0x1000000 +
+        (R < 255 ? (R < 1 ? 0 : R) : 255) * 0x10000 +
+        (G < 255 ? (G < 1 ? 0 : G) : 255) * 0x100 +
+        (B < 255 ? (B < 1 ? 0 : B) : 255)
+      ).toString(16).slice(1);
+    }
+
+    function downloadIcon(canvasId, filename) {
+      const canvas = document.getElementById(canvasId);
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    function downloadAll() {
+      downloadIcon('icon16', 'icon16.png');
+      setTimeout(() => downloadIcon('icon48', 'icon48.png'), 100);
+      setTimeout(() => downloadIcon('icon128', 'icon128.png'), 200);
+    }
+
+    // Generate default icons on load
+    window.onload = function() {
+      generateIcons();
+    };
+  </script>
+</body>
+</html>

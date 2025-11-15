@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "LinkedIn Lead Finder",
+  "version": "1.0.0",
+  "description": "Find LinkedIn posts with specific keywords, extract contact information, and export to Google Sheets",
+  "permissions": [
+    "storage",
+    "identity",
+    "notifications",
+    "alarms",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://www.linkedin.com/*",
+    "https://sheets.googleapis.com/*",
+    "https://openrouter.ai/*"
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.linkedin.com/*"],
+      "js": ["utils/extractor.js", "utils/matcher.js", "content/content.js"],
+      "css": ["content/content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "oauth2": {
+    "client_id": "625792829562-0240hgv3dfi6c00107gtimj23nse9h26.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/spreadsheets"
+    ]
+  }
+}
