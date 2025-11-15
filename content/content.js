@@ -182,6 +182,9 @@ class LinkedInScanner {
         return;
       }
 
+      // Expand truncated post text before extraction
+      await this.expandPostContent(postElement);
+
       // Extract post content
       const postData = this.extractPostData(postElement);
       if (!postData || !postData.content) {
@@ -323,6 +326,44 @@ class LinkedInScanner {
     } catch (error) {
       console.error('Error extracting post data:', error);
       return null;
+    }
+  }
+
+  async expandPostContent(postElement) {
+    try {
+      const selectors = [
+        'button.feed-shared-inline-show-more-text__see-more-less-toggle',
+        'button.inline-show-more-text__button',
+        'button[aria-label*="see more" i]',
+        'button[aria-label*="show more" i]',
+        '.feed-shared-inline-show-more-text button',
+        '.inline-show-more-text button'
+      ];
+
+      const buttons = new Set();
+      selectors.forEach(selector => {
+        postElement.querySelectorAll(selector).forEach(btn => {
+          if (btn && btn.offsetParent !== null) {
+            buttons.add(btn);
+          }
+        });
+      });
+
+      if (buttons.size === 0) {
+        return;
+      }
+
+      for (const button of buttons) {
+        const label = (button.textContent || button.getAttribute('aria-label') || '').toLowerCase();
+        if (label.includes('more') && !label.includes('less')) {
+          button.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+          button.click();
+          button.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+          await this.sleep(200);
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to expand post content:', error);
     }
   }
 
