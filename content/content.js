@@ -838,6 +838,10 @@ class LinkedInScanner {
         this.runScanIfReady();
         break;
 
+      case 'START_AUTO_SEARCH':
+        this.ensureAutoSearchMonitor();
+        break;
+
       default:
         break;
     }

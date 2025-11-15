@@ -388,6 +388,8 @@ class PopupController {
       await this.saveSettings();
       this.renderSettings();
 
+      this.notifyContentScript({ type: 'START_AUTO_SEARCH' });
+
       const keywordMsg = addedCount > 0
         ? `AI added ${addedCount} new keyword${addedCount === 1 ? '' : 's'}`
         : 'Keywords refreshed';
