@@ -344,6 +344,14 @@ input[type="password"]:focus {
   width: 100%;
 }
 
+.btn-block {
+  width: 100%;
+}
+
+.automation-actions {
+  margin-top: 10px;
+}
+
 /* Settings */
 .setting-item {
   margin-bottom: 15px;

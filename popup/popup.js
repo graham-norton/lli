@@ -172,6 +172,7 @@ class PopupController {
     profileInput.addEventListener('blur', () => this.saveSettings());
     document.getElementById('save-openrouter-key').addEventListener('click', () => this.saveOpenRouterKey());
     document.getElementById('clear-openrouter-key').addEventListener('click', () => this.clearOpenRouterKey());
+    document.getElementById('start-ai-auto-search').addEventListener('click', () => this.startAutoSearchWithAI());
 
     // Statistics
     document.getElementById('export-now-btn').addEventListener('click', () => this.exportNow());
@@ -342,6 +343,59 @@ class PopupController {
       modelSelect.value = desiredModel;
     }
     this.updateOpenRouterStatus();
+  }
+
+  async startAutoSearchWithAI() {
+    if (!this.hasOpenRouterKey) {
+      this.showStatus('Add your OpenRouter API key first.', 'error');
+      return;
+    }
+
+    const profile = (this.settings.companyProfile || '').trim();
+    if (!profile) {
+      this.showStatus('Describe your ideal lead in the company profile field.', 'error');
+      return;
+    }
+
+    this.showStatus('Generating fresh keywords with AI...', 'info');
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'GENERATE_KEYWORDS',
+        profile,
+        existingKeywords: this.keywords,
+        model: this.settings.openRouterModel || OPENROUTER_DEFAULT_MODEL
+      });
+
+      if (!response?.success) {
+        throw new Error(response?.error || 'AI keyword generation failed');
+      }
+
+      const generated = (response.keywords || []).map(keyword => keyword.trim()).filter(Boolean);
+      if (generated.length === 0) {
+        throw new Error('AI did not return any keywords');
+      }
+
+      const previousCount = this.keywords.length;
+      const combined = [...new Set([...generated, ...this.keywords])].slice(0, 50);
+      const addedCount = combined.length - previousCount;
+
+      this.keywords = combined;
+      await this.saveKeywords();
+      this.renderKeywords();
+
+      this.settings.autoSearchEnabled = true;
+      await this.saveSettings();
+      this.renderSettings();
+
+      const keywordMsg = addedCount > 0
+        ? `AI added ${addedCount} new keyword${addedCount === 1 ? '' : 's'}`
+        : 'Keywords refreshed';
+      this.showStatus(`${keywordMsg}. Auto-search is running.`, 'success');
+    } catch (error) {
+      console.error('AI auto search error:', error);
+      this.showStatus(error.message || 'Unable to start AI auto search', 'error');
+    }
   }
 
   async checkAuthStatus() {
@@ -516,7 +570,12 @@ class PopupController {
   showStatus(message, type = 'success') {
     const statusBar = document.getElementById('status-message');
     statusBar.textContent = message;
-    statusBar.style.color = type === 'error' ? '#d32f2f' : '#0077b5';
+    const colors = {
+      success: '#0077b5',
+      error: '#d32f2f',
+      info: '#555'
+    };
+    statusBar.style.color = colors[type] || colors.success;
 
     setTimeout(() => {
       statusBar.textContent = 'Ready';

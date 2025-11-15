@@ -88,6 +88,14 @@ async function handleMessage(message, sender, sendResponse) {
         const relevance = await assessLeadRelevance(message.lead, message.profile, message.model);
         sendResponse(relevance);
         break;
+      case 'GENERATE_KEYWORDS':
+        const keywordResult = await generateSearchKeywords(
+          message.profile,
+          message.existingKeywords,
+          message.model
+        );
+        sendResponse(keywordResult);
+        break;
 
       default:
         sendResponse({ success: false, error: 'Unknown message type' });
@@ -451,6 +459,100 @@ Decide if this post represents a promising lead that matches the profile. Respon
       relevant: true,
       reason: `AI error: ${error.message}`
     };
+  }
+}
+
+async function generateSearchKeywords(profile = '', existingKeywords = [], preferredModel) {
+  const trimmedProfile = (profile || '').trim();
+  if (!trimmedProfile) {
+    return { success: false, error: 'Company profile is required for AI keyword generation.' };
+  }
+
+  try {
+    const { openRouterKey } = await chrome.storage.local.get(['openRouterKey']);
+    if (!openRouterKey) {
+      return { success: false, error: 'OpenRouter API key not configured.' };
+    }
+
+    const syncData = await chrome.storage.sync.get(['settings']);
+    const fallbackModel = syncData.settings?.openRouterModel || 'openrouter/openai/gpt-4o-mini';
+    const model = preferredModel || fallbackModel;
+
+    const existingList = (existingKeywords || []).slice(0, 20).join(', ');
+    const prompt = `
+You are an expert LinkedIn sourcer helping a recruiter find leads.
+
+Company / lead profile:
+${trimmedProfile}
+
+Existing keywords (avoid duplicates if possible):
+${existingList || 'None'}
+
+Return 5-10 concise LinkedIn search keyword phrases (no hashtags) focused on this profile. Include variations (job titles, pain points, hiring signals, industry keywords). Respond ONLY as JSON:
+{
+  "keywords": ["keyword one", "keyword two"]
+}`.trim();
+
+    const body = {
+      model,
+      temperature: 0.4,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: 'You specialize in crafting LinkedIn search keywords. Only return valid JSON.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ]
+    };
+
+    const response = await fetch(OPENROUTER_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openRouterKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`OpenRouter error: ${text}`);
+    }
+
+    const data = await response.json();
+    const content = data?.choices?.[0]?.message?.content?.trim();
+    if (!content) {
+      throw new Error('Empty response from OpenRouter');
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(content);
+    } catch (error) {
+      throw new Error('AI response was not valid JSON');
+    }
+
+    const keywords = Array.isArray(parsed.keywords)
+      ? parsed.keywords.map(k => String(k).trim()).filter(Boolean)
+      : [];
+
+    if (keywords.length === 0) {
+      throw new Error('AI did not return any keywords');
+    }
+
+    const uniqueKeywords = [...new Set(keywords)].slice(0, 12);
+
+    return {
+      success: true,
+      keywords: uniqueKeywords
+    };
+  } catch (error) {
+    console.error('Keyword generation failed:', error);
+    return { success: false, error: error.message || 'Failed to generate keywords' };
   }
 }
 
