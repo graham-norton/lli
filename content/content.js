@@ -13,6 +13,14 @@ class LinkedInScanner {
     this.extractor = new ContactExtractor();
     this.matcher = null;
 
+    // Intelligent mode components
+    this.pageAnalyzer = new LinkedInPageAnalyzer();
+    this.goalEngine = new GoalEngine();
+    this.intelligentExtractor = new IntelligentExtractor();
+    this.intelligentMode = false;
+    this.currentGoal = null;
+    this.currentPageAnalysis = null;
+
     this.stats = {
       totalLeads: 0,
       emailsFound: 0,
@@ -39,7 +47,11 @@ class LinkedInScanner {
       autoScrollDelay: 1500,
       aiRelevanceEnabled: false,
       companyProfile: '',
-      openRouterModel: 'openrouter/openai/gpt-4o-mini'
+      openRouterModel: 'openrouter/openai/gpt-4o-mini',
+      // Intelligent mode settings
+      intelligentMode: false,
+      currentGoalId: null,
+      autopilotEnabled: false
     };
   }
 
@@ -820,6 +832,185 @@ class LinkedInScanner {
     if (phonesEl) phonesEl.textContent = this.stats.phonesFound;
   }
 
+  // ====== INTELLIGENT MODE METHODS ======
+
+  /**
+   * Analyze current page and recommend extraction strategy
+   */
+  async analyzeCurrentPage() {
+    console.log('🔍 Analyzing current LinkedIn page...');
+
+    this.currentPageAnalysis = this.pageAnalyzer.analyzePage();
+
+    console.log('Page analysis:', this.currentPageAnalysis);
+
+    // Recommend goal based on page type
+    const recommendedGoal = this.goalEngine.recommendGoal(this.currentPageAnalysis);
+
+    console.log('Recommended goal:', recommendedGoal.name);
+
+    // Send analysis to popup
+    chrome.runtime.sendMessage({
+      type: 'PAGE_ANALYZED',
+      analysis: this.currentPageAnalysis,
+      recommendedGoal: recommendedGoal
+    });
+
+    return this.currentPageAnalysis;
+  }
+
+  /**
+   * Set goal and start intelligent extraction
+   */
+  async startIntelligentMode(goalId, customInstructions = '') {
+    console.log('🚀 Starting intelligent mode with goal:', goalId);
+
+    // Set goal in engine
+    const success = this.goalEngine.setGoal(goalId, customInstructions);
+
+    if (!success) {
+      console.error('Failed to set goal');
+      return false;
+    }
+
+    this.currentGoal = this.goalEngine.currentGoal;
+    this.intelligentMode = true;
+
+    // Analyze page if not already done
+    if (!this.currentPageAnalysis) {
+      await this.analyzeCurrentPage();
+    }
+
+    // Generate extraction strategy
+    const strategy = this.goalEngine.generateStrategy(this.currentGoal, this.currentPageAnalysis);
+
+    console.log('Extraction strategy:', strategy);
+
+    // Show notification
+    this.showNotification(
+      'Intelligent Mode Active',
+      `Goal: ${this.currentGoal.name}\nPage: ${this.currentPageAnalysis.pageType}`
+    );
+
+    // Execute strategy
+    if (this.settings.autopilotEnabled) {
+      await this.executeIntelligentStrategy(strategy);
+    }
+
+    return true;
+  }
+
+  /**
+   * Execute intelligent extraction strategy
+   */
+  async executeIntelligentStrategy(strategy) {
+    console.log('⚙️ Executing intelligent extraction strategy...');
+
+    const result = await this.intelligentExtractor.executeStrategy(strategy, {
+      stepDelay: 1000
+    });
+
+    if (result.success) {
+      console.log(`✅ Extraction complete: ${result.count} items extracted`);
+
+      // Process extracted data
+      await this.processIntelligentData(result.data);
+
+      this.showNotification(
+        'Extraction Complete',
+        `Successfully extracted ${result.count} leads`
+      );
+    } else {
+      console.error('❌ Extraction failed:', result.error);
+
+      this.showNotification(
+        'Extraction Failed',
+        result.error || 'Unknown error occurred'
+      );
+    }
+
+    return result;
+  }
+
+  /**
+   * Process and save intelligently extracted data
+   */
+  async processIntelligentData(data) {
+    console.log('Processing extracted data:', data.length, 'items');
+
+    for (const item of data) {
+      // Create lead object in standard format
+      const lead = {
+        id: `intelligent_${Date.now()}_${Math.random()}`,
+        timestamp: item._timestamp || new Date().toISOString(),
+        postUrl: item.profile_url || item.author_profile || window.location.href,
+        authorName: item.name || item.author_name || 'Unknown',
+        authorProfile: item.profile_url || item.author_profile || '',
+        keywordMatched: ['intelligent_extraction'],
+        postContent: item.comment_text || item.headline || item.content || '',
+        emails: item.emails || [],
+        phones: item.phones || [],
+        exported: false,
+        intelligentExtraction: true,
+        goal: this.currentGoal?.name || 'Unknown',
+        pageType: this.currentPageAnalysis?.pageType || 'Unknown',
+        aiRelevant: item._aiRelevant,
+        aiPriority: item._aiPriority,
+        aiReason: item._aiReason,
+        extractedFields: item
+      };
+
+      // Save lead
+      await this.saveLead(lead);
+
+      // Update stats
+      this.updateStats({ emails: lead.emails, phones: lead.phones });
+    }
+  }
+
+  /**
+   * Stop intelligent mode
+   */
+  stopIntelligentMode() {
+    console.log('⏹️ Stopping intelligent mode');
+
+    this.intelligentMode = false;
+    this.intelligentExtractor.stop();
+
+    this.showNotification(
+      'Intelligent Mode Stopped',
+      'Extraction has been stopped'
+    );
+  }
+
+  /**
+   * Handle page navigation in intelligent mode
+   */
+  async handleIntelligentPageChange() {
+    if (!this.intelligentMode || !this.settings.autopilotEnabled) {
+      return;
+    }
+
+    // Re-analyze page
+    await this.analyzeCurrentPage();
+
+    // Check if goal is still compatible
+    if (this.currentGoal) {
+      const compatible = this.goalEngine.isGoalCompatible(
+        this.currentGoal.id,
+        this.currentPageAnalysis.pageType
+      );
+
+      if (compatible) {
+        // Continue extraction on new page
+        const strategy = this.goalEngine.generateStrategy(this.currentGoal, this.currentPageAnalysis);
+        await this.executeIntelligentStrategy(strategy);
+      } else {
+        console.log('Current goal not compatible with this page type');
+      }
+    }
+  }
+
   handleMessage(message, sender, sendResponse) {
     switch (message.type) {
       case 'KEYWORDS_UPDATED':
@@ -841,6 +1032,30 @@ class LinkedInScanner {
       case 'START_AUTO_SEARCH':
         this.ensureAutoSearchMonitor();
         break;
+
+      // Intelligent mode messages
+      case 'ANALYZE_PAGE':
+        this.analyzeCurrentPage().then(analysis => {
+          sendResponse({ success: true, analysis });
+        });
+        return true;  // Async response
+
+      case 'START_INTELLIGENT_MODE':
+        this.startIntelligentMode(message.goalId, message.customInstructions).then(success => {
+          sendResponse({ success });
+        });
+        return true;  // Async response
+
+      case 'STOP_INTELLIGENT_MODE':
+        this.stopIntelligentMode();
+        sendResponse({ success: true });
+        break;
+
+      case 'EXECUTE_STRATEGY':
+        this.executeIntelligentStrategy(message.strategy).then(result => {
+          sendResponse(result);
+        });
+        return true;  // Async response
 
       default:
         break;

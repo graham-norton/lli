@@ -16,15 +16,63 @@
 
     <!-- Tabs -->
     <div class="tabs">
-      <button class="tab-btn active" data-tab="keywords">Keywords</button>
+      <button class="tab-btn active" data-tab="copilot">Co-Pilot</button>
+      <button class="tab-btn" data-tab="keywords">Keywords</button>
       <button class="tab-btn" data-tab="sheets">Google Sheets</button>
       <button class="tab-btn" data-tab="stats">Statistics</button>
       <button class="tab-btn" data-tab="automation">Automation & AI</button>
       <button class="tab-btn" data-tab="settings">Settings</button>
     </div>
 
+    <!-- Co-Pilot Tab -->
+    <div class="tab-content active" id="copilot">
+      <div class="section">
+        <h3>🤖 LinkedIn Co-Pilot</h3>
+        <p class="section-description">Let AI analyze the current page and automatically extract leads based on your goal.</p>
+
+        <!-- Page Analysis -->
+        <div class="page-analysis" id="page-analysis">
+          <h4>Current Page:</h4>
+          <div class="analysis-result" id="analysis-result">
+            <p class="text-muted">Click "Analyze Page" to detect extraction opportunities</p>
+          </div>
+          <button id="analyze-page-btn" class="btn-secondary">🔍 Analyze Page</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Select Your Goal</h3>
+        <div class="goal-grid" id="goal-grid">
+          <!-- Goal cards will be added dynamically -->
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Custom Instructions (Optional)</h3>
+        <textarea id="custom-instructions" rows="3" placeholder="Add any specific instructions for the AI co-pilot..."></textarea>
+      </div>
+
+      <div class="section">
+        <div class="copilot-controls">
+          <div class="toggle-row">
+            <label for="autopilot-mode">
+              <input type="checkbox" id="autopilot-mode" />
+              Enable Autopilot (automatically extracts on new pages)
+            </label>
+          </div>
+          <div class="action-buttons">
+            <button id="start-copilot-btn" class="btn-primary btn-block">🚀 Start Co-Pilot</button>
+            <button id="stop-copilot-btn" class="btn-danger btn-block" style="display: none;">⏹️ Stop Co-Pilot</button>
+          </div>
+          <div class="copilot-status" id="copilot-status">
+            <p class="text-muted">Co-pilot is inactive</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Keywords Tab -->
-    <div class="tab-content active" id="keywords">
+    <div class="tab-content" id="keywords">
       <div class="section">
         <h3>Manage Keywords</h3>
         <div class="input-group">
