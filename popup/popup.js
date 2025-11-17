@@ -753,6 +753,11 @@ class PopupController {
         throw new Error('No active tab found');
       }
 
+      // Check if on LinkedIn
+      if (!tabs[0].url || !tabs[0].url.includes('linkedin.com')) {
+        throw new Error('Please navigate to a LinkedIn page first');
+      }
+
       const response = await chrome.tabs.sendMessage(tabs[0].id, {
         type: 'ANALYZE_PAGE'
       });
@@ -779,8 +784,19 @@ class PopupController {
       }
     } catch (error) {
       console.error('Error analyzing page:', error);
-      resultDiv.innerHTML = `<p class="text-error">Error: ${error.message}</p>`;
-      this.showStatus('Error analyzing page', 'error');
+
+      // Handle connection errors specifically
+      if (error.message && error.message.includes('Could not establish connection')) {
+        resultDiv.innerHTML = `
+          <p class="text-error">⚠️ Co-pilot not ready</p>
+          <p style="font-size: 11px; margin-top: 8px;">Please <strong>refresh the LinkedIn page</strong> and try again.</p>
+          <p style="font-size: 10px; color: #999; margin-top: 4px;">The extension needs to load on the page first.</p>
+        `;
+        this.showStatus('Please refresh the LinkedIn page', 'error');
+      } else {
+        resultDiv.innerHTML = `<p class="text-error">Error: ${error.message}</p>`;
+        this.showStatus('Error analyzing page', 'error');
+      }
     } finally {
       btn.disabled = false;
       btn.textContent = '🔍 Analyze Page';
@@ -807,6 +823,11 @@ class PopupController {
         throw new Error('No active tab found');
       }
 
+      // Check if on LinkedIn
+      if (!tabs[0].url || !tabs[0].url.includes('linkedin.com')) {
+        throw new Error('Please navigate to a LinkedIn page first');
+      }
+
       const response = await chrome.tabs.sendMessage(tabs[0].id, {
         type: 'START_INTELLIGENT_MODE',
         goalId: this.selectedGoalId,
@@ -828,8 +849,19 @@ class PopupController {
       }
     } catch (error) {
       console.error('Error starting co-pilot:', error);
-      statusDiv.innerHTML = `<p class="text-error">Error: ${error.message}</p>`;
-      this.showStatus('Error starting co-pilot', 'error');
+
+      // Handle connection errors specifically
+      if (error.message && error.message.includes('Could not establish connection')) {
+        statusDiv.innerHTML = `
+          <p class="text-error">⚠️ Co-pilot not ready</p>
+          <p style="font-size: 11px; margin-top: 8px;">Please <strong>refresh the LinkedIn page</strong> and try again.</p>
+          <p style="font-size: 10px; color: #999; margin-top: 4px;">After refreshing, re-select your goal and click Start.</p>
+        `;
+        this.showStatus('Please refresh the LinkedIn page', 'error');
+      } else {
+        statusDiv.innerHTML = `<p class="text-error">Error: ${error.message}</p>`;
+        this.showStatus('Error starting co-pilot', 'error');
+      }
       startBtn.disabled = false;
     }
   }

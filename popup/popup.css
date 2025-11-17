@@ -449,6 +449,21 @@ input[type="password"]:focus {
 
 /* ====== CO-PILOT STYLES ====== */
 
+/* Info Banner */
+.info-banner {
+  background: #e3f2fd;
+  border-left: 3px solid #2196f3;
+  padding: 10px 12px;
+  margin: 12px 0;
+  font-size: 11px;
+  line-height: 1.5;
+  border-radius: 4px;
+}
+
+.info-banner strong {
+  color: #1976d2;
+}
+
 /* Page Analysis */
 .page-analysis {
   margin: 15px 0;
