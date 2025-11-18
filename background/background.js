@@ -110,7 +110,7 @@ async function handleMessage(message, sender, sendResponse) {
         startMultiKeywordAIWithTabs(
           message.userGoal,
           message.keywords,
-          sender.tab.id
+          sender.tab?.id || null  // Safe access - sender.tab is undefined when called from popup
         ).then(result => {
           sendResponse(result);
         }).catch(error => {
