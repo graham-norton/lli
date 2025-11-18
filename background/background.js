@@ -686,6 +686,24 @@ function notifyPopup(message) {
   }
 }
 
+// Helper function to send logs to logger page
+function sendLog(message, level = 'info') {
+  console.log(`[${level.toUpperCase()}] ${message}`);
+
+  try {
+    chrome.runtime.sendMessage({
+      type: 'LOG',
+      message: message,
+      level: level
+    }, () => {
+      // Suppress errors when no listeners (e.g., logger not open)
+      void chrome.runtime.lastError;
+    });
+  } catch (error) {
+    // Silently fail if no listener
+  }
+}
+
 // Multi-keyword AI with tabs state
 let multiKeywordState = {
   active: false,
@@ -697,8 +715,8 @@ let multiKeywordState = {
 };
 
 async function startMultiKeywordAIWithTabs(userGoal, keywords, originalTabId) {
-  console.log('🚀 Starting multi-keyword AI with tabs approach');
-  console.log(`Keywords: ${keywords.length}, Goal: ${userGoal}`);
+  sendLog('🚀 Starting multi-keyword AI with tabs approach', 'info');
+  sendLog(`Keywords: ${keywords.length}, Goal: ${userGoal}`, 'info');
 
   multiKeywordState = {
     active: true,
@@ -717,18 +735,18 @@ async function startMultiKeywordAIWithTabs(userGoal, keywords, originalTabId) {
 
 async function processNextKeywordInTab() {
   if (!multiKeywordState.active) {
-    console.log('Multi-keyword mode stopped');
+    sendLog('Multi-keyword mode stopped', 'info');
     return;
   }
 
   if (multiKeywordState.currentIndex >= multiKeywordState.keywords.length) {
-    console.log('✅ All keywords processed!');
+    sendLog('✅ All keywords processed!', 'success');
     await stopMultiKeywordAIWithTabs(true);
     return;
   }
 
   const keyword = multiKeywordState.keywords[multiKeywordState.currentIndex];
-  console.log(`🔍 Processing keyword ${multiKeywordState.currentIndex + 1}/${multiKeywordState.keywords.length}: "${keyword}"`);
+  sendLog(`🔍 Processing keyword ${multiKeywordState.currentIndex + 1}/${multiKeywordState.keywords.length}: "${keyword}"`, 'info');
 
   // Build LinkedIn search URL
   const searchUrl = `https://www.linkedin.com/search/results/content/?keywords=${encodeURIComponent(keyword)}&origin=GLOBAL_SEARCH_HEADER`;
@@ -741,14 +759,14 @@ async function processNextKeywordInTab() {
     });
 
     multiKeywordState.currentTabId = tab.id;
-    console.log(`📑 Opened new tab ${tab.id} for keyword: ${keyword}`);
+    sendLog(`📑 Opened new tab ${tab.id} for keyword: ${keyword}`, 'info');
 
     // Wait for tab to load
     await waitForTabLoad(tab.id);
-    console.log(`✅ Tab ${tab.id} loaded`);
+    sendLog(`✅ Tab ${tab.id} loaded`, 'success');
 
     // Wait additional time for LinkedIn to render AND content script to initialize
-    console.log('⏳ Waiting 12s for LinkedIn and content script to initialize...');
+    sendLog('⏳ Waiting 12s for LinkedIn and content script to initialize...', 'info');
     await sleep(12000); // Increased from 8s to 12s
 
     // Try to send message with retries
@@ -758,7 +776,7 @@ async function processNextKeywordInTab() {
 
     while (attempts < maxAttempts && !response) {
       attempts++;
-      console.log(`🤖 Attempt ${attempts}/${maxAttempts}: Starting AI extraction in tab ${tab.id}`);
+      sendLog(`🤖 Attempt ${attempts}/${maxAttempts}: Starting AI extraction in tab ${tab.id}`, 'info');
 
       try {
         response = await chrome.tabs.sendMessage(tab.id, {
@@ -768,19 +786,19 @@ async function processNextKeywordInTab() {
         });
 
         if (response && response.success) {
-          console.log(`✅ Extracted ${response.count || 0} items from keyword: ${keyword}`);
+          sendLog(`✅ Extracted ${response.count || 0} items from keyword: ${keyword}`, 'success');
           break;
         } else {
-          console.warn(`⚠️ Response but no success for keyword: ${keyword}`, response);
+          sendLog(`⚠️ Response but no success for keyword: ${keyword}`, 'warning');
           if (attempts < maxAttempts) {
-            console.log('Waiting 3s before retry...');
+            sendLog('Waiting 3s before retry...', 'info');
             await sleep(3000);
           }
         }
       } catch (error) {
-        console.error(`❌ Error sending message (attempt ${attempts}):`, error.message);
+        sendLog(`❌ Error sending message (attempt ${attempts}): ${error.message}`, 'error');
         if (attempts < maxAttempts) {
-          console.log('Waiting 3s before retry...');
+          sendLog('Waiting 3s before retry...', 'info');
           await sleep(3000);
         } else {
           throw error;
@@ -790,7 +808,7 @@ async function processNextKeywordInTab() {
 
     // Close the tab
     await chrome.tabs.remove(tab.id);
-    console.log(`🗑️ Closed tab ${tab.id}`);
+    sendLog(`🗑️ Closed tab ${tab.id}`, 'info');
 
     // Wait before next keyword (configurable delay)
     const settings = await chrome.storage.sync.get(['settings']);
@@ -802,21 +820,21 @@ async function processNextKeywordInTab() {
     await processNextKeywordInTab();
 
   } catch (error) {
-    console.error(`❌ Error processing keyword "${keyword}":`, error);
-    console.error('Full error:', error.stack);
+    sendLog(`❌ Error processing keyword "${keyword}": ${error.message}`, 'error');
+    sendLog(`Full error stack: ${error.stack}`, 'error');
 
     // Try to close tab if it exists
     if (multiKeywordState.currentTabId) {
       try {
         await chrome.tabs.remove(multiKeywordState.currentTabId);
-        console.log('Tab closed after error');
+        sendLog('Tab closed after error', 'info');
       } catch (e) {
-        console.error('Error closing tab:', e);
+        sendLog(`Error closing tab: ${e.message}`, 'error');
       }
     }
 
     // Continue to next keyword despite error
-    console.log('Moving to next keyword despite error...');
+    sendLog('Moving to next keyword despite error...', 'warning');
     multiKeywordState.currentIndex++;
     await processNextKeywordInTab();
   }
