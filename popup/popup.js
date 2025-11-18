@@ -1039,14 +1039,9 @@ class PopupController {
     statusDiv.innerHTML = `<p class="text-info">🔍 Starting multi-keyword AI extraction...</p>`;
 
     try {
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tabs[0]) {
-        throw new Error('No active tab found');
-      }
-
-      // Start multi-keyword AI mode
-      const response = await chrome.tabs.sendMessage(tabs[0].id, {
-        type: 'START_MULTI_KEYWORD_AI',
+      // Start multi-keyword AI mode with tabs approach (managed by background script)
+      const response = await chrome.runtime.sendMessage({
+        type: 'START_MULTI_KEYWORD_AI_TABS',
         userGoal: userGoal,
         keywords: keywords
       });
@@ -1058,10 +1053,10 @@ class PopupController {
             <p style="font-size: 11px; margin-top: 8px;">
               <strong>Keywords:</strong> ${keywords.length}<br>
               <strong>Goal:</strong> ${userGoal.substring(0, 50)}${userGoal.length > 50 ? '...' : ''}<br>
-              <strong>Status:</strong> Searching and extracting...
+              <strong>Status:</strong> Opening tabs and extracting...
             </p>
             <p style="font-size: 10px; margin-top: 8px; color: #666;">
-              The extension will automatically navigate through each keyword, scroll, analyze with AI, and extract leads. This may take several minutes.
+              The extension will open a new tab for each keyword, scroll to load all content, analyze with AI, extract leads, then close the tab. Each keyword takes ~1-2 minutes. You can continue using LinkedIn in other tabs.
             </p>
           </div>
         `;
@@ -1077,16 +1072,8 @@ class PopupController {
     } catch (error) {
       console.error('Error starting multi-keyword AI mode:', error);
 
-      if (error.message && error.message.includes('Could not establish connection')) {
-        statusDiv.innerHTML = `
-          <p class="text-error">⚠️ Extension not ready</p>
-          <p style="font-size: 11px; margin-top: 8px;">Please <strong>refresh the LinkedIn page</strong> and try again.</p>
-        `;
-        this.showStatus('Please refresh the LinkedIn page', 'error');
-      } else {
-        statusDiv.innerHTML = `<p class="text-error">Error: ${error.message}</p>`;
-        this.showStatus('Error starting multi-keyword AI mode', 'error');
-      }
+      statusDiv.innerHTML = `<p class="text-error">Error: ${error.message}</p>`;
+      this.showStatus('Error starting multi-keyword AI mode', 'error');
 
       startBtn.disabled = false;
       startBtn.textContent = '🚀 Start AI Extraction';
@@ -1099,15 +1086,24 @@ class PopupController {
     const stopBtn = document.getElementById('stop-ai-mode-btn');
 
     try {
+      // Stop tab-based multi-keyword mode (background script)
+      await chrome.runtime.sendMessage({
+        type: 'STOP_MULTI_KEYWORD_AI_TABS'
+      });
+
+      // Stop single-page modes (content script)
       const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tabs[0]) {
-        // Stop both single-page and multi-keyword modes
-        await chrome.tabs.sendMessage(tabs[0].id, {
-          type: 'STOP_AI_MODE'
-        });
-        await chrome.tabs.sendMessage(tabs[0].id, {
-          type: 'STOP_MULTI_KEYWORD_AI'
-        });
+        try {
+          await chrome.tabs.sendMessage(tabs[0].id, {
+            type: 'STOP_AI_MODE'
+          });
+          await chrome.tabs.sendMessage(tabs[0].id, {
+            type: 'STOP_MULTI_KEYWORD_AI'
+          });
+        } catch (e) {
+          // Tab might not have content script loaded
+        }
       }
 
       statusDiv.innerHTML = '<p class="text-muted">AI mode is inactive</p>';

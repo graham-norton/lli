@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Extractor Logger</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      color: #4ec9b0;
+      margin-bottom: 20px;
+      font-size: 24px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #252526;
+      border-radius: 5px;
+    }
+
+    .status {
+      display: flex;
+      gap: 20px;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #666;
+    }
+
+    .status-dot.active {
+      background: #4ec9b0;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+    }
+
+    button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: #0e639c;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #1177bb;
+    }
+
+    .btn-success {
+      background: #4ec9b0;
+      color: #1e1e1e;
+    }
+
+    .btn-success:hover {
+      background: #5dd3ba;
+    }
+
+    .btn-danger {
+      background: #f48771;
+      color: #1e1e1e;
+    }
+
+    .btn-danger:hover {
+      background: #f59d87;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .info-card {
+      background: #252526;
+      padding: 15px;
+      border-radius: 5px;
+      border-left: 3px solid #4ec9b0;
+    }
+
+    .info-label {
+      color: #858585;
+      font-size: 11px;
+      margin-bottom: 5px;
+    }
+
+    .info-value {
+      color: #d4d4d4;
+      font-size: 14px;
+      word-break: break-all;
+    }
+
+    .log-container {
+      background: #1e1e1e;
+      border: 1px solid #3e3e42;
+      border-radius: 5px;
+      height: 600px;
+      overflow-y: auto;
+      padding: 15px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .log-entry {
+      margin-bottom: 8px;
+      padding: 4px 8px;
+      border-radius: 3px;
+    }
+
+    .log-entry:hover {
+      background: #2d2d30;
+    }
+
+    .log-time {
+      color: #858585;
+      margin-right: 10px;
+    }
+
+    .log-source {
+      color: #4ec9b0;
+      margin-right: 10px;
+      font-weight: bold;
+    }
+
+    .log-message {
+      color: #d4d4d4;
+    }
+
+    .log-error {
+      border-left: 3px solid #f48771;
+      background: #3a2525;
+    }
+
+    .log-error .log-message {
+      color: #f48771;
+    }
+
+    .log-success {
+      border-left: 3px solid #4ec9b0;
+    }
+
+    .log-success .log-message {
+      color: #4ec9b0;
+    }
+
+    .log-warning {
+      border-left: 3px solid #d7ba7d;
+    }
+
+    .log-warning .log-message {
+      color: #d7ba7d;
+    }
+
+    .log-info {
+      border-left: 3px solid #569cd6;
+    }
+
+    .log-info .log-message {
+      color: #569cd6;
+    }
+
+    .empty-state {
+      text-align: center;
+      color: #858585;
+      padding: 40px;
+    }
+
+    .copy-success {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #4ec9b0;
+      color: #1e1e1e;
+      padding: 12px 20px;
+      border-radius: 5px;
+      animation: slideIn 0.3s ease-out;
+      z-index: 1000;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔍 AI Extractor Logger</h1>
+      <div class="controls">
+        <button class="btn-primary" id="start-test">▶ Start Test</button>
+        <button class="btn-success" id="copy-logs">📋 Copy All Logs</button>
+        <button class="btn-danger" id="clear-logs">🗑️ Clear</button>
+      </div>
+    </div>
+
+    <div class="status">
+      <div class="status-item">
+        <div class="status-dot" id="status-bg"></div>
+        <span>Background Script</span>
+      </div>
+      <div class="status-item">
+        <div class="status-dot" id="status-content"></div>
+        <span>Content Script</span>
+      </div>
+      <div class="status-item">
+        <div class="status-dot" id="status-extraction"></div>
+        <span>Extraction Active</span>
+      </div>
+    </div>
+
+    <div class="info-grid" id="info-grid">
+      <div class="info-card">
+        <div class="info-label">OpenRouter API Key</div>
+        <div class="info-value" id="api-key-status">Checking...</div>
+      </div>
+      <div class="info-card">
+        <div class="info-label">Keywords Count</div>
+        <div class="info-value" id="keywords-count">0</div>
+      </div>
+      <div class="info-card">
+        <div class="info-label">Google Sheets Connected</div>
+        <div class="info-value" id="sheets-status">Checking...</div>
+      </div>
+      <div class="info-card">
+        <div class="info-label">Total Logs</div>
+        <div class="info-value" id="log-count">0</div>
+      </div>
+    </div>
+
+    <div class="log-container" id="log-container">
+      <div class="empty-state">
+        No logs yet. Click "Start Test" to begin AI extraction test.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const logs = [];
+    const logContainer = document.getElementById('log-container');
+    const logCountEl = document.getElementById('log-count');
+
+    // Add log entry
+    function addLog(source, message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 });
+      const log = { timestamp, source, message, type };
+      logs.push(log);
+
+      // Update UI
+      if (logs.length === 1) {
+        logContainer.innerHTML = '';
+      }
+
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.innerHTML = `
+        <span class="log-time">${timestamp}</span>
+        <span class="log-source">[${source}]</span>
+        <span class="log-message">${escapeHtml(message)}</span>
+      `;
+      logContainer.appendChild(entry);
+      logContainer.scrollTop = logContainer.scrollHeight;
+
+      logCountEl.textContent = logs.length;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Load initial status
+    async function loadStatus() {
+      try {
+        // Check OpenRouter API key
+        const local = await chrome.storage.local.get(['openRouterKey']);
+        const apiKeyStatus = document.getElementById('api-key-status');
+        if (local.openRouterKey) {
+          const masked = local.openRouterKey.substring(0, 10) + '...' + local.openRouterKey.slice(-4);
+          apiKeyStatus.textContent = masked;
+          apiKeyStatus.style.color = '#4ec9b0';
+          addLog('SYSTEM', 'OpenRouter API key configured', 'success');
+        } else {
+          apiKeyStatus.textContent = 'Not configured';
+          apiKeyStatus.style.color = '#f48771';
+          addLog('SYSTEM', 'OpenRouter API key NOT configured', 'error');
+        }
+
+        // Check keywords
+        const sync = await chrome.storage.sync.get(['keywords']);
+        const keywordsCount = document.getElementById('keywords-count');
+        keywordsCount.textContent = sync.keywords?.length || 0;
+        addLog('SYSTEM', `Keywords loaded: ${sync.keywords?.length || 0}`, 'info');
+
+        // Check Google Sheets
+        const sheets = await chrome.storage.local.get(['googleToken', 'sheetId']);
+        const sheetsStatus = document.getElementById('sheets-status');
+        if (sheets.googleToken && sheets.sheetId) {
+          sheetsStatus.textContent = 'Connected';
+          sheetsStatus.style.color = '#4ec9b0';
+          addLog('SYSTEM', 'Google Sheets connected', 'success');
+        } else {
+          sheetsStatus.textContent = 'Not connected';
+          sheetsStatus.style.color = '#f48771';
+          addLog('SYSTEM', 'Google Sheets NOT connected', 'warning');
+        }
+
+        // Mark background script as active
+        document.getElementById('status-bg').classList.add('active');
+
+      } catch (error) {
+        addLog('SYSTEM', `Error loading status: ${error.message}`, 'error');
+      }
+    }
+
+    // Start test
+    async function startTest() {
+      addLog('TEST', 'Starting AI extraction test...', 'info');
+
+      try {
+        // Get active tab
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tabs[0]) {
+          addLog('TEST', 'No active tab found', 'error');
+          return;
+        }
+
+        const tab = tabs[0];
+        addLog('TEST', `Active tab: ${tab.url}`, 'info');
+
+        if (!tab.url.includes('linkedin.com')) {
+          addLog('TEST', 'Current tab is not LinkedIn. Please navigate to LinkedIn first.', 'warning');
+          return;
+        }
+
+        // Mark content script as checking
+        addLog('TEST', 'Checking if content script is loaded...', 'info');
+
+        // Try to ping content script
+        try {
+          const response = await chrome.tabs.sendMessage(tab.id, { type: 'PING' });
+          addLog('TEST', 'Content script responded successfully', 'success');
+          document.getElementById('status-content').classList.add('active');
+        } catch (error) {
+          addLog('TEST', `Content script not responding: ${error.message}`, 'error');
+          addLog('TEST', 'Try refreshing the LinkedIn page (F5) and then clicking Start Test again', 'warning');
+          return;
+        }
+
+        // Start test extraction
+        addLog('TEST', 'Starting test extraction with keyword: "test"', 'info');
+        document.getElementById('status-extraction').classList.add('active');
+
+        const testResult = await chrome.runtime.sendMessage({
+          type: 'START_MULTI_KEYWORD_AI_TABS',
+          userGoal: 'Extract names and emails from posts',
+          keywords: ['test']
+        });
+
+        if (testResult.success) {
+          addLog('TEST', 'Test extraction started successfully!', 'success');
+          addLog('TEST', 'Watch this log for updates...', 'info');
+        } else {
+          addLog('TEST', `Test extraction failed: ${testResult.error}`, 'error');
+          document.getElementById('status-extraction').classList.remove('active');
+        }
+
+      } catch (error) {
+        addLog('TEST', `Error during test: ${error.message}`, 'error');
+        addLog('TEST', `Full error: ${error.stack}`, 'error');
+      }
+    }
+
+    // Copy logs
+    function copyLogs() {
+      const logText = logs.map(log =>
+        `[${log.timestamp}] [${log.source}] ${log.message}`
+      ).join('\n');
+
+      const fullReport = `
+=== AI EXTRACTOR DEBUG REPORT ===
+Generated: ${new Date().toISOString()}
+
+=== STATUS ===
+API Key: ${document.getElementById('api-key-status').textContent}
+Keywords: ${document.getElementById('keywords-count').textContent}
+Sheets: ${document.getElementById('sheets-status').textContent}
+Total Logs: ${logs.length}
+
+=== LOGS ===
+${logText}
+
+=== END REPORT ===
+      `.trim();
+
+      navigator.clipboard.writeText(fullReport).then(() => {
+        showCopySuccess();
+      });
+    }
+
+    function showCopySuccess() {
+      const msg = document.createElement('div');
+      msg.className = 'copy-success';
+      msg.textContent = '✓ Copied to clipboard!';
+      document.body.appendChild(msg);
+      setTimeout(() => msg.remove(), 2000);
+    }
+
+    // Clear logs
+    function clearLogs() {
+      logs.length = 0;
+      logContainer.innerHTML = '<div class="empty-state">Logs cleared.</div>';
+      logCountEl.textContent = '0';
+      addLog('SYSTEM', 'Logs cleared', 'info');
+    }
+
+    // Listen to messages from background script
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      if (message.type === 'LOG') {
+        addLog('BACKGROUND', message.message, message.level || 'info');
+      }
+    });
+
+    // Event listeners
+    document.getElementById('start-test').addEventListener('click', startTest);
+    document.getElementById('copy-logs').addEventListener('click', copyLogs);
+    document.getElementById('clear-logs').addEventListener('click', clearLogs);
+
+    // Initialize
+    loadStatus();
+    addLog('SYSTEM', 'Logger initialized', 'success');
+  </script>
+</body>
+</html>

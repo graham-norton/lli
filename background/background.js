@@ -106,6 +106,23 @@ async function handleMessage(message, sender, sendResponse) {
         sendResponse(analysisResult);
         break;
 
+      case 'START_MULTI_KEYWORD_AI_TABS':
+        startMultiKeywordAIWithTabs(
+          message.userGoal,
+          message.keywords,
+          sender.tab.id
+        ).then(result => {
+          sendResponse(result);
+        }).catch(error => {
+          sendResponse({ success: false, error: error.message });
+        });
+        return true;  // Async response
+
+      case 'STOP_MULTI_KEYWORD_AI_TABS':
+        stopMultiKeywordAIWithTabs();
+        sendResponse({ success: true });
+        break;
+
       default:
         sendResponse({ success: false, error: 'Unknown message type' });
     }
@@ -667,6 +684,212 @@ function notifyPopup(message) {
   } catch (error) {
     console.warn('Unable to notify popup:', error);
   }
+}
+
+// Helper function to send logs to logger page
+function sendLog(message, level = 'info') {
+  console.log(`[${level.toUpperCase()}] ${message}`);
+
+  try {
+    chrome.runtime.sendMessage({
+      type: 'LOG',
+      message: message,
+      level: level
+    }, () => {
+      // Suppress errors when no listeners (e.g., logger not open)
+      void chrome.runtime.lastError;
+    });
+  } catch (error) {
+    // Silently fail if no listener
+  }
+}
+
+// Multi-keyword AI with tabs state
+let multiKeywordState = {
+  active: false,
+  userGoal: '',
+  keywords: [],
+  currentIndex: 0,
+  currentTabId: null,
+  originalTabId: null
+};
+
+async function startMultiKeywordAIWithTabs(userGoal, keywords, originalTabId) {
+  sendLog('🚀 Starting multi-keyword AI with tabs approach', 'info');
+  sendLog(`Keywords: ${keywords.length}, Goal: ${userGoal}`, 'info');
+
+  multiKeywordState = {
+    active: true,
+    userGoal,
+    keywords,
+    currentIndex: 0,
+    currentTabId: null,
+    originalTabId
+  };
+
+  // Process first keyword
+  await processNextKeywordInTab();
+
+  return { success: true };
+}
+
+async function processNextKeywordInTab() {
+  if (!multiKeywordState.active) {
+    sendLog('Multi-keyword mode stopped', 'info');
+    return;
+  }
+
+  if (multiKeywordState.currentIndex >= multiKeywordState.keywords.length) {
+    sendLog('✅ All keywords processed!', 'success');
+    await stopMultiKeywordAIWithTabs(true);
+    return;
+  }
+
+  const keyword = multiKeywordState.keywords[multiKeywordState.currentIndex];
+  sendLog(`🔍 Processing keyword ${multiKeywordState.currentIndex + 1}/${multiKeywordState.keywords.length}: "${keyword}"`, 'info');
+
+  // Build LinkedIn search URL
+  const searchUrl = `https://www.linkedin.com/search/results/content/?keywords=${encodeURIComponent(keyword)}&origin=GLOBAL_SEARCH_HEADER`;
+
+  try {
+    // Create new tab
+    const tab = await chrome.tabs.create({
+      url: searchUrl,
+      active: false  // Don't switch to the tab
+    });
+
+    multiKeywordState.currentTabId = tab.id;
+    sendLog(`📑 Opened new tab ${tab.id} for keyword: ${keyword}`, 'info');
+
+    // Wait for tab to load
+    await waitForTabLoad(tab.id);
+    sendLog(`✅ Tab ${tab.id} loaded`, 'success');
+
+    // Wait additional time for LinkedIn to render AND content script to initialize
+    sendLog('⏳ Waiting 12s for LinkedIn and content script to initialize...', 'info');
+    await sleep(12000); // Increased from 8s to 12s
+
+    // Try to send message with retries
+    let response = null;
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    while (attempts < maxAttempts && !response) {
+      attempts++;
+      sendLog(`🤖 Attempt ${attempts}/${maxAttempts}: Starting AI extraction in tab ${tab.id}`, 'info');
+
+      try {
+        response = await chrome.tabs.sendMessage(tab.id, {
+          type: 'EXTRACT_IN_TAB',
+          userGoal: multiKeywordState.userGoal,
+          keyword: keyword
+        });
+
+        if (response && response.success) {
+          sendLog(`✅ Extracted ${response.count || 0} items from keyword: ${keyword}`, 'success');
+          break;
+        } else {
+          sendLog(`⚠️ Response but no success for keyword: ${keyword}`, 'warning');
+          if (attempts < maxAttempts) {
+            sendLog('Waiting 3s before retry...', 'info');
+            await sleep(3000);
+          }
+        }
+      } catch (error) {
+        sendLog(`❌ Error sending message (attempt ${attempts}): ${error.message}`, 'error');
+        if (attempts < maxAttempts) {
+          sendLog('Waiting 3s before retry...', 'info');
+          await sleep(3000);
+        } else {
+          throw error;
+        }
+      }
+    }
+
+    // Close the tab
+    await chrome.tabs.remove(tab.id);
+    sendLog(`🗑️ Closed tab ${tab.id}`, 'info');
+
+    // Wait before next keyword (configurable delay)
+    const settings = await chrome.storage.sync.get(['settings']);
+    const delay = settings.settings?.autoSearchDelay || 5000;
+    await sleep(delay);
+
+    // Move to next keyword
+    multiKeywordState.currentIndex++;
+    await processNextKeywordInTab();
+
+  } catch (error) {
+    sendLog(`❌ Error processing keyword "${keyword}": ${error.message}`, 'error');
+    sendLog(`Full error stack: ${error.stack}`, 'error');
+
+    // Try to close tab if it exists
+    if (multiKeywordState.currentTabId) {
+      try {
+        await chrome.tabs.remove(multiKeywordState.currentTabId);
+        sendLog('Tab closed after error', 'info');
+      } catch (e) {
+        sendLog(`Error closing tab: ${e.message}`, 'error');
+      }
+    }
+
+    // Continue to next keyword despite error
+    sendLog('Moving to next keyword despite error...', 'warning');
+    multiKeywordState.currentIndex++;
+    await processNextKeywordInTab();
+  }
+}
+
+async function stopMultiKeywordAIWithTabs(completed = false) {
+  console.log('⏹️ Stopping multi-keyword AI with tabs');
+
+  // Close current tab if open
+  if (multiKeywordState.currentTabId) {
+    try {
+      await chrome.tabs.remove(multiKeywordState.currentTabId);
+    } catch (error) {
+      // Tab might already be closed
+    }
+  }
+
+  multiKeywordState = {
+    active: false,
+    userGoal: '',
+    keywords: [],
+    currentIndex: 0,
+    currentTabId: null,
+    originalTabId: null
+  };
+
+  // Notify popup
+  notifyPopup({
+    type: 'MULTI_KEYWORD_TABS_STOPPED',
+    completed: completed
+  });
+
+  return { success: true };
+}
+
+function waitForTabLoad(tabId) {
+  return new Promise((resolve) => {
+    const listener = (updatedTabId, changeInfo, tab) => {
+      if (updatedTabId === tabId && changeInfo.status === 'complete') {
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    };
+    chrome.tabs.onUpdated.addListener(listener);
+
+    // Timeout after 30 seconds
+    setTimeout(() => {
+      chrome.tabs.onUpdated.removeListener(listener);
+      resolve();
+    }, 30000);
+  });
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 // Alarm for periodic sync (optional)
