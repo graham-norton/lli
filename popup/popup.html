@@ -22,6 +22,7 @@
       <button class="tab-btn" data-tab="stats">Statistics</button>
       <button class="tab-btn" data-tab="automation">Automation & AI</button>
       <button class="tab-btn" data-tab="settings">Settings</button>
+      <button class="tab-btn" data-tab="logger">Logger</button>
     </div>
 
     <!-- Co-Pilot Tab -->
@@ -311,6 +312,55 @@
 
         <div class="action-buttons">
           <button id="save-settings-btn" class="btn-primary">Save Settings</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logger Tab -->
+    <div class="tab-content" id="logger">
+      <div class="section">
+        <h3>Diagnostic Logger</h3>
+        <p class="section-description">Real-time logs from the background script for debugging AI extraction issues.</p>
+
+        <div class="logger-status-grid">
+          <div class="logger-status-item">
+            <span class="logger-status-label">Background:</span>
+            <span class="logger-status-value" id="logger-bg-status">●</span>
+          </div>
+          <div class="logger-status-item">
+            <span class="logger-status-label">Content Script:</span>
+            <span class="logger-status-value" id="logger-content-status">●</span>
+          </div>
+          <div class="logger-status-item">
+            <span class="logger-status-label">Extraction:</span>
+            <span class="logger-status-value" id="logger-extraction-status">○</span>
+          </div>
+        </div>
+
+        <div class="logger-system-status">
+          <div class="logger-system-item">
+            <strong>API Key:</strong> <span id="logger-api-key-status">Checking...</span>
+          </div>
+          <div class="logger-system-item">
+            <strong>Keywords:</strong> <span id="logger-keywords-count">0</span>
+          </div>
+          <div class="logger-system-item">
+            <strong>Google Sheets:</strong> <span id="logger-sheets-status">Not configured</span>
+          </div>
+        </div>
+
+        <div class="action-buttons">
+          <button id="logger-start-test-btn" class="btn-primary">Start Test</button>
+          <button id="logger-copy-btn" class="btn-secondary">Copy All Logs</button>
+          <button id="logger-clear-btn" class="btn-secondary">Clear</button>
+        </div>
+
+        <div class="logger-container" id="logger-container">
+          <div class="log-entry log-info">
+            <span class="log-time">--:--:--.---</span>
+            <span class="log-source">[LOGGER]</span>
+            <span class="log-message">Logger initialized. Waiting for logs...</span>
+          </div>
         </div>
       </div>
     </div>
