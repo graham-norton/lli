@@ -14,9 +14,19 @@ class LinkedInScanner {
     this.matcher = null;
 
     // Intelligent mode components
-    this.pageAnalyzer = new LinkedInPageAnalyzer();
-    this.goalEngine = new GoalEngine();
-    this.intelligentExtractor = new IntelligentExtractor();
+    try {
+      this.pageAnalyzer = new LinkedInPageAnalyzer();
+      this.goalEngine = new GoalEngine();
+      this.intelligentExtractor = new IntelligentExtractor();
+      console.log('✅ Intelligent mode components initialized successfully');
+    } catch (error) {
+      console.error('❌ Error initializing intelligent mode components:', error);
+      // Fallback to null so extension still works in classic mode
+      this.pageAnalyzer = null;
+      this.goalEngine = null;
+      this.intelligentExtractor = null;
+    }
+
     this.intelligentMode = false;
     this.currentGoal = null;
     this.currentPageAnalysis = null;
@@ -840,23 +850,31 @@ class LinkedInScanner {
   async analyzeCurrentPage() {
     console.log('🔍 Analyzing current LinkedIn page...');
 
-    this.currentPageAnalysis = this.pageAnalyzer.analyzePage();
+    if (!this.pageAnalyzer || !this.goalEngine) {
+      console.error('❌ Intelligent mode components not available');
+      throw new Error('Co-pilot components failed to initialize. Please reload the extension.');
+    }
 
-    console.log('Page analysis:', this.currentPageAnalysis);
+    try {
+      this.currentPageAnalysis = this.pageAnalyzer.analyzePage();
+      console.log('Page analysis:', this.currentPageAnalysis);
 
-    // Recommend goal based on page type
-    const recommendedGoal = this.goalEngine.recommendGoal(this.currentPageAnalysis);
+      // Recommend goal based on page type
+      const recommendedGoal = this.goalEngine.recommendGoal(this.currentPageAnalysis);
+      console.log('Recommended goal:', recommendedGoal.name);
 
-    console.log('Recommended goal:', recommendedGoal.name);
+      // Send analysis to popup
+      chrome.runtime.sendMessage({
+        type: 'PAGE_ANALYZED',
+        analysis: this.currentPageAnalysis,
+        recommendedGoal: recommendedGoal
+      });
 
-    // Send analysis to popup
-    chrome.runtime.sendMessage({
-      type: 'PAGE_ANALYZED',
-      analysis: this.currentPageAnalysis,
-      recommendedGoal: recommendedGoal
-    });
-
-    return this.currentPageAnalysis;
+      return this.currentPageAnalysis;
+    } catch (error) {
+      console.error('❌ Error during page analysis:', error);
+      throw error;
+    }
   }
 
   /**
@@ -865,39 +883,49 @@ class LinkedInScanner {
   async startIntelligentMode(goalId, customInstructions = '') {
     console.log('🚀 Starting intelligent mode with goal:', goalId);
 
-    // Set goal in engine
-    const success = this.goalEngine.setGoal(goalId, customInstructions);
-
-    if (!success) {
-      console.error('Failed to set goal');
-      return false;
+    if (!this.goalEngine || !this.intelligentExtractor) {
+      console.error('❌ Intelligent mode components not available');
+      throw new Error('Co-pilot components failed to initialize. Please reload the extension.');
     }
 
-    this.currentGoal = this.goalEngine.currentGoal;
-    this.intelligentMode = true;
+    try {
+      // Set goal in engine
+      const success = this.goalEngine.setGoal(goalId, customInstructions);
 
-    // Analyze page if not already done
-    if (!this.currentPageAnalysis) {
-      await this.analyzeCurrentPage();
+      if (!success) {
+        console.error('Failed to set goal');
+        return false;
+      }
+
+      this.currentGoal = this.goalEngine.currentGoal;
+      this.intelligentMode = true;
+
+      // Analyze page if not already done
+      if (!this.currentPageAnalysis) {
+        await this.analyzeCurrentPage();
+      }
+
+      // Generate extraction strategy
+      const strategy = this.goalEngine.generateStrategy(this.currentGoal, this.currentPageAnalysis);
+
+      console.log('Extraction strategy:', strategy);
+
+      // Show notification
+      this.showNotification(
+        'Intelligent Mode Active',
+        `Goal: ${this.currentGoal.name}\nPage: ${this.currentPageAnalysis.pageType}`
+      );
+
+      // Execute strategy
+      if (this.settings.autopilotEnabled) {
+        await this.executeIntelligentStrategy(strategy);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('❌ Error starting intelligent mode:', error);
+      throw error;
     }
-
-    // Generate extraction strategy
-    const strategy = this.goalEngine.generateStrategy(this.currentGoal, this.currentPageAnalysis);
-
-    console.log('Extraction strategy:', strategy);
-
-    // Show notification
-    this.showNotification(
-      'Intelligent Mode Active',
-      `Goal: ${this.currentGoal.name}\nPage: ${this.currentPageAnalysis.pageType}`
-    );
-
-    // Execute strategy
-    if (this.settings.autopilotEnabled) {
-      await this.executeIntelligentStrategy(strategy);
-    }
-
-    return true;
   }
 
   /**
@@ -1035,15 +1063,25 @@ class LinkedInScanner {
 
       // Intelligent mode messages
       case 'ANALYZE_PAGE':
-        this.analyzeCurrentPage().then(analysis => {
-          sendResponse({ success: true, analysis });
-        });
+        this.analyzeCurrentPage()
+          .then(analysis => {
+            sendResponse({ success: true, analysis });
+          })
+          .catch(error => {
+            console.error('Error in ANALYZE_PAGE handler:', error);
+            sendResponse({ success: false, error: error.message });
+          });
         return true;  // Async response
 
       case 'START_INTELLIGENT_MODE':
-        this.startIntelligentMode(message.goalId, message.customInstructions).then(success => {
-          sendResponse({ success });
-        });
+        this.startIntelligentMode(message.goalId, message.customInstructions)
+          .then(result => {
+            sendResponse({ success: true, result });
+          })
+          .catch(error => {
+            console.error('Error in START_INTELLIGENT_MODE handler:', error);
+            sendResponse({ success: false, error: error.message });
+          });
         return true;  // Async response
 
       case 'STOP_INTELLIGENT_MODE':

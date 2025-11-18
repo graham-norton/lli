@@ -780,7 +780,9 @@ class PopupController {
 
         this.showStatus('Page analyzed successfully');
       } else {
-        throw new Error('Failed to analyze page');
+        // Use the error message from response if available
+        const errorMsg = response?.error || 'Failed to analyze page';
+        throw new Error(errorMsg);
       }
     } catch (error) {
       console.error('Error analyzing page:', error);
@@ -845,7 +847,9 @@ class PopupController {
 
         this.showStatus('Co-pilot started successfully');
       } else {
-        throw new Error('Failed to start co-pilot');
+        // Use the error message from response if available
+        const errorMsg = response?.error || 'Failed to start co-pilot';
+        throw new Error(errorMsg);
       }
     } catch (error) {
       console.error('Error starting co-pilot:', error);
