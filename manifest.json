@@ -8,7 +8,8 @@
     "identity",
     "notifications",
     "alarms",
-    "tabs"
+    "tabs",
+    "downloads"
   ],
   "host_permissions": [
     "https://www.linkedin.com/*",
@@ -29,7 +30,15 @@
   "content_scripts": [
     {
       "matches": ["https://www.linkedin.com/*"],
-      "js": ["utils/extractor.js", "utils/matcher.js", "content/content.js"],
+      "js": [
+        "utils/extractor.js",
+        "utils/matcher.js",
+        "utils/pageAnalyzer.js",
+        "utils/goalEngine.js",
+        "utils/intelligentExtractor.js",
+        "utils/aiScraper.js",
+        "content/content.js"
+      ],
       "css": ["content/content.css"],
       "run_at": "document_idle"
     }

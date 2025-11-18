@@ -13,6 +13,29 @@ class LinkedInScanner {
     this.extractor = new ContactExtractor();
     this.matcher = null;
 
+    // Intelligent mode components
+    try {
+      this.pageAnalyzer = new LinkedInPageAnalyzer();
+      this.goalEngine = new GoalEngine();
+      this.intelligentExtractor = new IntelligentExtractor();
+      this.aiScraper = new AIScraper();
+      console.log('✅ Intelligent mode components initialized successfully');
+    } catch (error) {
+      console.error('❌ Error initializing intelligent mode components:', error);
+      // Fallback to null so extension still works in classic mode
+      this.pageAnalyzer = null;
+      this.goalEngine = null;
+      this.intelligentExtractor = null;
+      this.aiScraper = null;
+    }
+
+    this.intelligentMode = false;
+    this.aiDrivenMode = false;
+    this.currentGoal = null;
+    this.currentGoalDescription = '';
+    this.currentPageAnalysis = null;
+    this.currentAIStrategy = null;
+
     this.stats = {
       totalLeads: 0,
       emailsFound: 0,
@@ -39,7 +62,11 @@ class LinkedInScanner {
       autoScrollDelay: 1500,
       aiRelevanceEnabled: false,
       companyProfile: '',
-      openRouterModel: 'openrouter/openai/gpt-4o-mini'
+      openRouterModel: 'openrouter/openai/gpt-4o-mini',
+      // Intelligent mode settings
+      intelligentMode: false,
+      currentGoalId: null,
+      autopilotEnabled: false
     };
   }
 
@@ -820,6 +847,366 @@ class LinkedInScanner {
     if (phonesEl) phonesEl.textContent = this.stats.phonesFound;
   }
 
+  // ====== INTELLIGENT MODE METHODS ======
+
+  /**
+   * Analyze current page and recommend extraction strategy
+   */
+  async analyzeCurrentPage() {
+    console.log('🔍 Analyzing current LinkedIn page...');
+
+    if (!this.pageAnalyzer || !this.goalEngine) {
+      console.error('❌ Intelligent mode components not available');
+      throw new Error('Co-pilot components failed to initialize. Please reload the extension.');
+    }
+
+    try {
+      this.currentPageAnalysis = this.pageAnalyzer.analyzePage();
+      console.log('Page analysis:', this.currentPageAnalysis);
+
+      // Recommend goal based on page type
+      const recommendedGoal = this.goalEngine.recommendGoal(this.currentPageAnalysis);
+      console.log('Recommended goal:', recommendedGoal.name);
+
+      // Send analysis to popup
+      chrome.runtime.sendMessage({
+        type: 'PAGE_ANALYZED',
+        analysis: this.currentPageAnalysis,
+        recommendedGoal: recommendedGoal
+      });
+
+      return this.currentPageAnalysis;
+    } catch (error) {
+      console.error('❌ Error during page analysis:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Set goal and start intelligent extraction
+   */
+  async startIntelligentMode(goalId, customInstructions = '') {
+    console.log('🚀 Starting intelligent mode with goal:', goalId);
+
+    if (!this.goalEngine || !this.intelligentExtractor) {
+      console.error('❌ Intelligent mode components not available');
+      throw new Error('Co-pilot components failed to initialize. Please reload the extension.');
+    }
+
+    try {
+      // Set goal in engine
+      const success = this.goalEngine.setGoal(goalId, customInstructions);
+
+      if (!success) {
+        console.error('Failed to set goal');
+        return false;
+      }
+
+      this.currentGoal = this.goalEngine.currentGoal;
+      this.intelligentMode = true;
+
+      // Analyze page if not already done
+      if (!this.currentPageAnalysis) {
+        await this.analyzeCurrentPage();
+      }
+
+      // Generate extraction strategy
+      const strategy = this.goalEngine.generateStrategy(this.currentGoal, this.currentPageAnalysis);
+
+      console.log('Extraction strategy:', strategy);
+
+      // Show notification
+      this.showNotification(
+        'Intelligent Mode Active',
+        `Goal: ${this.currentGoal.name}\nPage: ${this.currentPageAnalysis.pageType}`
+      );
+
+      // Execute strategy
+      if (this.settings.autopilotEnabled) {
+        await this.executeIntelligentStrategy(strategy);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('❌ Error starting intelligent mode:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Execute intelligent extraction strategy
+   */
+  async executeIntelligentStrategy(strategy) {
+    console.log('⚙️ Executing intelligent extraction strategy...');
+
+    const result = await this.intelligentExtractor.executeStrategy(strategy, {
+      stepDelay: 1000
+    });
+
+    if (result.success) {
+      console.log(`✅ Extraction complete: ${result.count} items extracted`);
+
+      // Process extracted data
+      await this.processIntelligentData(result.data);
+
+      this.showNotification(
+        'Extraction Complete',
+        `Successfully extracted ${result.count} leads`
+      );
+    } else {
+      console.error('❌ Extraction failed:', result.error);
+
+      this.showNotification(
+        'Extraction Failed',
+        result.error || 'Unknown error occurred'
+      );
+    }
+
+    return result;
+  }
+
+  /**
+   * Process and save intelligently extracted data
+   */
+  async processIntelligentData(data) {
+    console.log('Processing extracted data:', data.length, 'items');
+
+    for (const item of data) {
+      // Create lead object in standard format
+      const lead = {
+        id: `intelligent_${Date.now()}_${Math.random()}`,
+        timestamp: item._timestamp || new Date().toISOString(),
+        postUrl: item.profile_url || item.author_profile || window.location.href,
+        authorName: item.name || item.author_name || 'Unknown',
+        authorProfile: item.profile_url || item.author_profile || '',
+        keywordMatched: ['intelligent_extraction'],
+        postContent: item.comment_text || item.headline || item.content || '',
+        emails: item.emails || [],
+        phones: item.phones || [],
+        exported: false,
+        intelligentExtraction: true,
+        goal: this.currentGoal?.name || 'Unknown',
+        pageType: this.currentPageAnalysis?.pageType || 'Unknown',
+        aiRelevant: item._aiRelevant,
+        aiPriority: item._aiPriority,
+        aiReason: item._aiReason,
+        extractedFields: item
+      };
+
+      // Save lead
+      await this.saveLead(lead);
+
+      // Update stats
+      this.updateStats({ emails: lead.emails, phones: lead.phones });
+    }
+  }
+
+  /**
+   * Stop intelligent mode
+   */
+  stopIntelligentMode() {
+    console.log('⏹️ Stopping intelligent mode');
+
+    this.intelligentMode = false;
+    this.intelligentExtractor.stop();
+
+    this.showNotification(
+      'Intelligent Mode Stopped',
+      'Extraction has been stopped'
+    );
+  }
+
+  // ====== AI-DRIVEN MODE METHODS ======
+
+  /**
+   * Start AI-driven extraction mode
+   * Uses AI to analyze HTML and generate extraction strategy on the fly
+   * @param {string} userGoal - What the user wants to extract (plain English)
+   */
+  async startAIDrivenMode(userGoal) {
+    console.log('🤖 Starting AI-driven extraction mode');
+    console.log(`User goal: ${userGoal}`);
+
+    if (!this.aiScraper) {
+      throw new Error('AI Scraper not initialized. Please reload the extension.');
+    }
+
+    if (!userGoal || userGoal.trim().length === 0) {
+      throw new Error('Please describe what you want to extract');
+    }
+
+    try {
+      this.aiDrivenMode = true;
+      this.currentGoalDescription = userGoal;
+
+      // Step 1: Capture page context (HTML + metadata)
+      console.log('📸 Capturing page context...');
+      const pageContext = this.aiScraper.capturePageContext();
+      console.log(`Captured ${pageContext.htmlSize} chars of HTML`);
+
+      // Step 2: Generate extraction strategy using AI
+      console.log('🧠 Generating extraction strategy with AI...');
+      const strategy = await this.aiScraper.generateExtractionStrategy(userGoal, pageContext);
+      this.currentAIStrategy = strategy;
+
+      console.log('✅ AI strategy generated:', strategy);
+
+      // Show notification
+      this.showNotification(
+        'AI Analysis Complete',
+        `Page type: ${strategy.pageType}\nFound ${strategy.dataAvailable.length} extractable fields`
+      );
+
+      // Step 3: Execute strategy if autopilot enabled
+      if (this.settings.autopilotEnabled) {
+        console.log('🚀 Autopilot enabled, executing strategy...');
+        await this.executeAIStrategy(strategy);
+      }
+
+      return {
+        success: true,
+        strategy: strategy,
+        pageContext: {
+          url: pageContext.url,
+          title: pageContext.title,
+          htmlSize: pageContext.htmlSize
+        }
+      };
+
+    } catch (error) {
+      console.error('❌ Error starting AI-driven mode:', error);
+      this.aiDrivenMode = false;
+      throw error;
+    }
+  }
+
+  /**
+   * Execute AI-generated extraction strategy
+   * @param {Object} strategy - AI-generated strategy
+   */
+  async executeAIStrategy(strategy) {
+    console.log('⚙️ Executing AI-generated extraction strategy...');
+
+    try {
+      const result = await this.aiScraper.executeStrategy(strategy, {
+        stepDelay: 1000,
+        maxItems: 100
+      });
+
+      if (result.success && result.data.length > 0) {
+        console.log(`✅ AI extraction complete: ${result.count} items extracted`);
+
+        // Process extracted data
+        await this.processAIExtractedData(result.data, strategy);
+
+        this.showNotification(
+          'AI Extraction Complete',
+          `Successfully extracted ${result.count} leads`
+        );
+      } else {
+        console.log('ℹ️ No data extracted');
+        this.showNotification(
+          'No Data Found',
+          'Could not extract any data from this page'
+        );
+      }
+
+      return result;
+
+    } catch (error) {
+      console.error('❌ Error executing AI strategy:', error);
+      this.showNotification(
+        'Extraction Failed',
+        error.message || 'Unknown error occurred'
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Process AI-extracted data and save as leads
+   * @param {Array} data - Extracted data items
+   * @param {Object} strategy - Strategy used for extraction
+   */
+  async processAIExtractedData(data, strategy) {
+    console.log('💾 Processing AI-extracted data:', data.length, 'items');
+
+    for (const item of data) {
+      // Extract emails and phones from the item
+      const allText = Object.values(item).filter(v => typeof v === 'string').join(' ');
+      const extractedContacts = this.extractor.extractAll(allText);
+
+      // Create lead object
+      const lead = {
+        id: `ai_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: item.timestamp || new Date().toISOString(),
+        postUrl: item.sourceUrl || window.location.href,
+        authorName: item.author || item.name || 'Unknown',
+        authorProfile: item.profileUrl || item.authorProfile || '',
+        keywordMatched: [`AI: ${this.currentGoalDescription}`],
+        postContent: item.content || item.postContent || JSON.stringify(item).substring(0, 500),
+        emails: extractedContacts.emails || [],
+        phones: extractedContacts.phones || [],
+        exported: false,
+        aiExtracted: true,
+        aiGoal: this.currentGoalDescription,
+        pageType: strategy.pageType,
+        extractedFields: item
+      };
+
+      // Only save if we found contacts or if user wants all data
+      if (lead.emails.length > 0 || lead.phones.length > 0) {
+        await this.saveLead(lead);
+        this.updateStats({ emails: lead.emails, phones: lead.phones });
+        console.log(`💾 Saved lead: ${lead.authorName} (${lead.emails.length} emails, ${lead.phones.length} phones)`);
+      }
+    }
+  }
+
+  /**
+   * Stop AI-driven mode
+   */
+  stopAIDrivenMode() {
+    console.log('⏹️ Stopping AI-driven mode');
+
+    this.aiDrivenMode = false;
+    this.currentGoalDescription = '';
+    this.currentAIStrategy = null;
+
+    this.showNotification(
+      'AI Mode Stopped',
+      'AI extraction has been stopped'
+    );
+  }
+
+  /**
+   * Handle page navigation in intelligent mode
+   */
+  async handleIntelligentPageChange() {
+    if (!this.intelligentMode || !this.settings.autopilotEnabled) {
+      return;
+    }
+
+    // Re-analyze page
+    await this.analyzeCurrentPage();
+
+    // Check if goal is still compatible
+    if (this.currentGoal) {
+      const compatible = this.goalEngine.isGoalCompatible(
+        this.currentGoal.id,
+        this.currentPageAnalysis.pageType
+      );
+
+      if (compatible) {
+        // Continue extraction on new page
+        const strategy = this.goalEngine.generateStrategy(this.currentGoal, this.currentPageAnalysis);
+        await this.executeIntelligentStrategy(strategy);
+      } else {
+        console.log('Current goal not compatible with this page type');
+      }
+    }
+  }
+
   handleMessage(message, sender, sendResponse) {
     switch (message.type) {
       case 'KEYWORDS_UPDATED':
@@ -840,6 +1227,57 @@ class LinkedInScanner {
 
       case 'START_AUTO_SEARCH':
         this.ensureAutoSearchMonitor();
+        break;
+
+      // Intelligent mode messages
+      case 'ANALYZE_PAGE':
+        this.analyzeCurrentPage()
+          .then(analysis => {
+            sendResponse({ success: true, analysis });
+          })
+          .catch(error => {
+            console.error('Error in ANALYZE_PAGE handler:', error);
+            sendResponse({ success: false, error: error.message });
+          });
+        return true;  // Async response
+
+      case 'START_INTELLIGENT_MODE':
+        this.startIntelligentMode(message.goalId, message.customInstructions)
+          .then(result => {
+            sendResponse({ success: true, result });
+          })
+          .catch(error => {
+            console.error('Error in START_INTELLIGENT_MODE handler:', error);
+            sendResponse({ success: false, error: error.message });
+          });
+        return true;  // Async response
+
+      case 'STOP_INTELLIGENT_MODE':
+        this.stopIntelligentMode();
+        sendResponse({ success: true });
+        break;
+
+      case 'EXECUTE_STRATEGY':
+        this.executeIntelligentStrategy(message.strategy).then(result => {
+          sendResponse(result);
+        });
+        return true;  // Async response
+
+      // AI-driven mode messages
+      case 'START_AI_MODE':
+        this.startAIDrivenMode(message.userGoal)
+          .then(result => {
+            sendResponse({ success: true, result });
+          })
+          .catch(error => {
+            console.error('Error in START_AI_MODE handler:', error);
+            sendResponse({ success: false, error: error.message });
+          });
+        return true;  // Async response
+
+      case 'STOP_AI_MODE':
+        this.stopAIDrivenMode();
+        sendResponse({ success: true });
         break;
 
       default:

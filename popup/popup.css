@@ -446,3 +446,189 @@ input[type="password"]:focus {
   color: #999;
   font-size: 12px;
 }
+
+/* ====== CO-PILOT STYLES ====== */
+
+/* Info Banner */
+.info-banner {
+  background: #e3f2fd;
+  border-left: 3px solid #2196f3;
+  padding: 10px 12px;
+  margin: 12px 0;
+  font-size: 11px;
+  line-height: 1.5;
+  border-radius: 4px;
+}
+
+.info-banner strong {
+  color: #1976d2;
+}
+
+/* Page Analysis */
+.page-analysis {
+  margin: 15px 0;
+}
+
+.page-analysis h4 {
+  font-size: 13px;
+  margin-bottom: 10px;
+  color: #555;
+}
+
+.analysis-result {
+  background: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 10px;
+  min-height: 60px;
+}
+
+.analysis-info {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.analysis-info strong {
+  color: #0077b5;
+}
+
+.analysis-info ul {
+  margin: 8px 0 8px 20px;
+  font-size: 11px;
+}
+
+.analysis-info li {
+  margin: 4px 0;
+  color: #666;
+}
+
+/* Goal Cards */
+.goal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.goal-card {
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: center;
+}
+
+.goal-card:hover {
+  border-color: #0077b5;
+  box-shadow: 0 2px 8px rgba(0, 119, 181, 0.1);
+  transform: translateY(-2px);
+}
+
+.goal-card.selected {
+  border-color: #0077b5;
+  background: #f0f7fb;
+  box-shadow: 0 2px 8px rgba(0, 119, 181, 0.2);
+}
+
+.goal-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.goal-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.goal-description {
+  font-size: 10px;
+  color: #777;
+  line-height: 1.4;
+}
+
+/* Co-Pilot Controls */
+.copilot-controls {
+  margin-top: 15px;
+}
+
+.copilot-status {
+  margin-top: 12px;
+  padding: 10px;
+  background: #f9f9f9;
+  border-radius: 4px;
+  border: 1px solid #e0e0e0;
+}
+
+.copilot-status p {
+  font-size: 12px;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Text Utilities */
+.text-muted {
+  color: #999;
+}
+
+.text-info {
+  color: #0077b5;
+}
+
+.text-success {
+  color: #2e7d32;
+}
+
+.text-error {
+  color: #d32f2f;
+}
+
+/* Button Block */
+.btn-block {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Stacked Action Buttons for Co-Pilot */
+.action-buttons.stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Custom Instructions Textarea */
+#custom-instructions {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 60px;
+}
+
+#custom-instructions:focus {
+  outline: none;
+  border-color: #0077b5;
+  box-shadow: 0 0 0 2px rgba(0, 119, 181, 0.1);
+}
+
+/* Responsive Adjustments for Co-Pilot */
+@media (max-width: 420px) {
+  .goal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .goal-card {
+    padding: 10px;
+  }
+
+  .goal-icon {
+    font-size: 28px;
+  }
+}

@@ -16,15 +16,94 @@
 
     <!-- Tabs -->
     <div class="tabs">
-      <button class="tab-btn active" data-tab="keywords">Keywords</button>
+      <button class="tab-btn active" data-tab="copilot">Co-Pilot</button>
+      <button class="tab-btn" data-tab="keywords">Keywords</button>
       <button class="tab-btn" data-tab="sheets">Google Sheets</button>
       <button class="tab-btn" data-tab="stats">Statistics</button>
       <button class="tab-btn" data-tab="automation">Automation & AI</button>
       <button class="tab-btn" data-tab="settings">Settings</button>
     </div>
 
+    <!-- Co-Pilot Tab -->
+    <div class="tab-content active" id="copilot">
+      <div class="section">
+        <h3>🤖 AI-Driven Extraction</h3>
+        <p class="section-description">Describe what you want to extract in plain English. AI will analyze the page HTML and figure out how to get it.</p>
+        <div class="info-banner">
+          <strong>📍 Important:</strong> Make sure you're on a LinkedIn page and have an OpenRouter API key configured in the Automation & AI tab.
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>What Do You Want to Extract?</h3>
+        <textarea id="ai-goal-input" rows="4" placeholder="Example: Extract all people who commented on this post with their names and profile URLs&#10;&#10;Example: Find all job applicants from this job listing and download their resumes&#10;&#10;Example: Get email addresses from everyone who liked or commented on this post"></textarea>
+
+        <div class="toggle-row">
+          <label for="ai-autopilot-mode">
+            <input type="checkbox" id="ai-autopilot-mode" />
+            Enable Autopilot (automatically execute extraction)
+          </label>
+        </div>
+
+        <div class="action-buttons">
+          <button id="start-ai-mode-btn" class="btn-primary btn-block">🚀 Start AI Extraction</button>
+          <button id="stop-ai-mode-btn" class="btn-danger btn-block" style="display: none;">⏹️ Stop AI Mode</button>
+        </div>
+
+        <div class="ai-mode-status" id="ai-mode-status">
+          <p class="text-muted">AI mode is inactive</p>
+        </div>
+      </div>
+
+      <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+
+      <div class="section">
+        <h3>🎯 Goal-Based Mode (Legacy)</h3>
+        <p class="section-description">Or use predefined extraction goals for common LinkedIn scenarios.</p>
+
+        <!-- Page Analysis -->
+        <div class="page-analysis" id="page-analysis" style="margin-top: 15px;">
+          <h4>Current Page:</h4>
+          <div class="analysis-result" id="analysis-result">
+            <p class="text-muted">Click "Analyze Page" to detect extraction opportunities</p>
+          </div>
+          <button id="analyze-page-btn" class="btn-secondary">🔍 Analyze Page</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Select Your Goal</h3>
+        <div class="goal-grid" id="goal-grid">
+          <!-- Goal cards will be added dynamically -->
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Custom Instructions (Optional)</h3>
+        <textarea id="custom-instructions" rows="3" placeholder="Add any specific instructions for the AI co-pilot..."></textarea>
+      </div>
+
+      <div class="section">
+        <div class="copilot-controls">
+          <div class="toggle-row">
+            <label for="autopilot-mode">
+              <input type="checkbox" id="autopilot-mode" />
+              Enable Autopilot (automatically extracts on new pages)
+            </label>
+          </div>
+          <div class="action-buttons">
+            <button id="start-copilot-btn" class="btn-primary btn-block">🚀 Start Goal-Based Co-Pilot</button>
+            <button id="stop-copilot-btn" class="btn-danger btn-block" style="display: none;">⏹️ Stop Co-Pilot</button>
+          </div>
+          <div class="copilot-status" id="copilot-status">
+            <p class="text-muted">Co-pilot is inactive</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Keywords Tab -->
-    <div class="tab-content active" id="keywords">
+    <div class="tab-content" id="keywords">
       <div class="section">
         <h3>Manage Keywords</h3>
         <div class="input-group">

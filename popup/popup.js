@@ -80,7 +80,11 @@ class PopupController {
       autoScrollCycles: 6,
       aiRelevanceEnabled: false,
       companyProfile: '',
-      openRouterModel: OPENROUTER_DEFAULT_MODEL
+      openRouterModel: OPENROUTER_DEFAULT_MODEL,
+      // Co-pilot settings
+      intelligentMode: false,
+      currentGoalId: null,
+      autopilotEnabled: false
     };
   }
 
@@ -93,6 +97,7 @@ class PopupController {
     this.renderStats();
     this.renderSettings();
     this.checkAuthStatus();
+    this.initCoPilot();
   }
 
   async loadData() {
@@ -180,6 +185,23 @@ class PopupController {
 
     // Settings
     document.getElementById('save-settings-btn').addEventListener('click', () => this.saveAllSettings());
+
+    // Co-Pilot
+    document.getElementById('analyze-page-btn').addEventListener('click', () => this.analyzePage());
+    document.getElementById('start-copilot-btn').addEventListener('click', () => this.startCoPilot());
+    document.getElementById('stop-copilot-btn').addEventListener('click', () => this.stopCoPilot());
+    document.getElementById('autopilot-mode').addEventListener('change', (e) => {
+      this.settings.autopilotEnabled = e.target.checked;
+      this.saveSettings();
+    });
+
+    // AI-Driven Mode
+    document.getElementById('start-ai-mode-btn').addEventListener('click', () => this.startAIMode());
+    document.getElementById('stop-ai-mode-btn').addEventListener('click', () => this.stopAIMode());
+    document.getElementById('ai-autopilot-mode').addEventListener('change', (e) => {
+      this.settings.autopilotEnabled = e.target.checked;
+      this.saveSettings();
+    });
   }
 
   setupTabs() {
@@ -655,6 +677,360 @@ class PopupController {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  // ====== CO-PILOT METHODS ======
+
+  initCoPilot() {
+    this.renderGoalCards();
+    this.selectedGoalId = this.settings.currentGoalId;
+  }
+
+  renderGoalCards() {
+    const goalGrid = document.getElementById('goal-grid');
+    if (!goalGrid) return;
+
+    const goals = [
+      {
+        id: 'job_applicants',
+        icon: '📋',
+        name: 'Job Applicants',
+        description: 'Extract applicant profiles and download resumes from job listings'
+      },
+      {
+        id: 'comment_mining',
+        icon: '💬',
+        name: 'Comment Mining',
+        description: 'Mine emails and contacts from post comments'
+      },
+      {
+        id: 'post_engagement',
+        icon: '❤️',
+        name: 'Post Engagement',
+        description: 'Find people who liked/commented on relevant posts'
+      },
+      {
+        id: 'people_discovery',
+        icon: '👥',
+        name: 'People Discovery',
+        description: 'Extract profiles matching your criteria'
+      },
+      {
+        id: 'company_intel',
+        icon: '🏢',
+        name: 'Company Intel',
+        description: 'Gather employee lists and decision makers'
+      },
+      {
+        id: 'keyword_hunting',
+        icon: '🔍',
+        name: 'Keyword Hunting',
+        description: 'Traditional keyword-based extraction (enhanced)'
+      }
+    ];
+
+    goalGrid.innerHTML = goals.map(goal => `
+      <div class="goal-card ${this.selectedGoalId === goal.id ? 'selected' : ''}" data-goal-id="${goal.id}">
+        <div class="goal-icon">${goal.icon}</div>
+        <div class="goal-name">${goal.name}</div>
+        <div class="goal-description">${goal.description}</div>
+      </div>
+    `).join('');
+
+    // Add click listeners
+    goalGrid.querySelectorAll('.goal-card').forEach(card => {
+      card.addEventListener('click', () => {
+        goalGrid.querySelectorAll('.goal-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        this.selectedGoalId = card.dataset.goalId;
+      });
+    });
+  }
+
+  async analyzePage() {
+    const btn = document.getElementById('analyze-page-btn');
+    const resultDiv = document.getElementById('analysis-result');
+
+    btn.disabled = true;
+    btn.textContent = '🔍 Analyzing...';
+    resultDiv.innerHTML = '<p class="text-muted">Analyzing current page...</p>';
+
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tabs[0]) {
+        throw new Error('No active tab found');
+      }
+
+      // Check if on LinkedIn
+      if (!tabs[0].url || !tabs[0].url.includes('linkedin.com')) {
+        throw new Error('Please navigate to a LinkedIn page first');
+      }
+
+      const response = await chrome.tabs.sendMessage(tabs[0].id, {
+        type: 'ANALYZE_PAGE'
+      });
+
+      if (response && response.success) {
+        const analysis = response.analysis;
+
+        resultDiv.innerHTML = `
+          <div class="analysis-info">
+            <div><strong>Page Type:</strong> ${this.formatPageType(analysis.pageType)}</div>
+            <div><strong>Extractable Elements:</strong></div>
+            <ul>
+              ${analysis.extractableElements.map(el => `
+                <li>${el.type}: ${el.extractable ? el.extractable.join(', ') : 'N/A'} ${el.count ? `(${el.count})` : ''}</li>
+              `).join('')}
+            </ul>
+            ${analysis.recommendedGoal ? `<div><strong>Recommended:</strong> ${analysis.recommendedGoal.name}</div>` : ''}
+          </div>
+        `;
+
+        this.showStatus('Page analyzed successfully');
+      } else {
+        // Use the error message from response if available
+        const errorMsg = response?.error || 'Failed to analyze page';
+        throw new Error(errorMsg);
+      }
+    } catch (error) {
+      console.error('Error analyzing page:', error);
+
+      // Handle connection errors specifically
+      if (error.message && error.message.includes('Could not establish connection')) {
+        resultDiv.innerHTML = `
+          <p class="text-error">⚠️ Co-pilot not ready</p>
+          <p style="font-size: 11px; margin-top: 8px;">Please <strong>refresh the LinkedIn page</strong> and try again.</p>
+          <p style="font-size: 10px; color: #999; margin-top: 4px;">The extension needs to load on the page first.</p>
+        `;
+        this.showStatus('Please refresh the LinkedIn page', 'error');
+      } else {
+        resultDiv.innerHTML = `<p class="text-error">Error: ${error.message}</p>`;
+        this.showStatus('Error analyzing page', 'error');
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🔍 Analyze Page';
+    }
+  }
+
+  async startCoPilot() {
+    if (!this.selectedGoalId) {
+      this.showStatus('Please select a goal first', 'error');
+      return;
+    }
+
+    const customInstructions = document.getElementById('custom-instructions').value;
+    const statusDiv = document.getElementById('copilot-status');
+    const startBtn = document.getElementById('start-copilot-btn');
+    const stopBtn = document.getElementById('stop-copilot-btn');
+
+    startBtn.disabled = true;
+    statusDiv.innerHTML = '<p class="text-info">🚀 Starting co-pilot...</p>';
+
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tabs[0]) {
+        throw new Error('No active tab found');
+      }
+
+      // Check if on LinkedIn
+      if (!tabs[0].url || !tabs[0].url.includes('linkedin.com')) {
+        throw new Error('Please navigate to a LinkedIn page first');
+      }
+
+      const response = await chrome.tabs.sendMessage(tabs[0].id, {
+        type: 'START_INTELLIGENT_MODE',
+        goalId: this.selectedGoalId,
+        customInstructions: customInstructions
+      });
+
+      if (response && response.success) {
+        this.settings.intelligentMode = true;
+        this.settings.currentGoalId = this.selectedGoalId;
+        await this.saveSettings();
+
+        statusDiv.innerHTML = '<p class="text-success">✅ Co-pilot is active and extracting leads!</p>';
+        startBtn.style.display = 'none';
+        stopBtn.style.display = 'block';
+
+        this.showStatus('Co-pilot started successfully');
+      } else {
+        // Use the error message from response if available
+        const errorMsg = response?.error || 'Failed to start co-pilot';
+        throw new Error(errorMsg);
+      }
+    } catch (error) {
+      console.error('Error starting co-pilot:', error);
+
+      // Handle connection errors specifically
+      if (error.message && error.message.includes('Could not establish connection')) {
+        statusDiv.innerHTML = `
+          <p class="text-error">⚠️ Co-pilot not ready</p>
+          <p style="font-size: 11px; margin-top: 8px;">Please <strong>refresh the LinkedIn page</strong> and try again.</p>
+          <p style="font-size: 10px; color: #999; margin-top: 4px;">After refreshing, re-select your goal and click Start.</p>
+        `;
+        this.showStatus('Please refresh the LinkedIn page', 'error');
+      } else {
+        statusDiv.innerHTML = `<p class="text-error">Error: ${error.message}</p>`;
+        this.showStatus('Error starting co-pilot', 'error');
+      }
+      startBtn.disabled = false;
+    }
+  }
+
+  async stopCoPilot() {
+    const statusDiv = document.getElementById('copilot-status');
+    const startBtn = document.getElementById('start-copilot-btn');
+    const stopBtn = document.getElementById('stop-copilot-btn');
+
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs[0]) {
+        await chrome.tabs.sendMessage(tabs[0].id, {
+          type: 'STOP_INTELLIGENT_MODE'
+        });
+      }
+
+      this.settings.intelligentMode = false;
+      this.settings.currentGoalId = null;
+      await this.saveSettings();
+
+      statusDiv.innerHTML = '<p class="text-muted">Co-pilot is inactive</p>';
+      startBtn.style.display = 'block';
+      stopBtn.style.display = 'none';
+      startBtn.disabled = false;
+
+      this.showStatus('Co-pilot stopped');
+    } catch (error) {
+      console.error('Error stopping co-pilot:', error);
+      this.showStatus('Error stopping co-pilot', 'error');
+    }
+  }
+
+  // ====== AI-DRIVEN MODE METHODS ======
+
+  async startAIMode() {
+    const userGoal = document.getElementById('ai-goal-input').value.trim();
+    const statusDiv = document.getElementById('ai-mode-status');
+    const startBtn = document.getElementById('start-ai-mode-btn');
+    const stopBtn = document.getElementById('stop-ai-mode-btn');
+
+    if (!userGoal) {
+      statusDiv.innerHTML = '<p class="text-error">⚠️ Please describe what you want to extract</p>';
+      this.showStatus('Please describe your extraction goal', 'error');
+      return;
+    }
+
+    startBtn.disabled = true;
+    startBtn.textContent = '🤖 Analyzing with AI...';
+    statusDiv.innerHTML = '<p class="text-info">🔍 AI is analyzing the page HTML...</p>';
+
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tabs[0]) {
+        throw new Error('No active tab found');
+      }
+
+      // Validate it's a LinkedIn page
+      if (!tabs[0].url || !tabs[0].url.includes('linkedin.com')) {
+        throw new Error('Please navigate to a LinkedIn page first');
+      }
+
+      // Start AI-driven mode
+      const response = await chrome.tabs.sendMessage(tabs[0].id, {
+        type: 'START_AI_MODE',
+        userGoal: userGoal
+      });
+
+      if (response && response.success) {
+        const result = response.result;
+
+        statusDiv.innerHTML = `
+          <div class="text-success">
+            <p><strong>✅ AI Analysis Complete!</strong></p>
+            <p style="font-size: 11px; margin-top: 8px;">
+              <strong>Page Type:</strong> ${result.strategy?.pageType || 'Unknown'}<br>
+              <strong>Extractable Fields:</strong> ${result.strategy?.dataAvailable?.length || 0}<br>
+              <strong>Extraction Steps:</strong> ${result.strategy?.extractionSteps?.length || 0}
+            </p>
+            ${result.strategy?.recommendations ? `<p style="font-size: 10px; margin-top: 8px; color: #666;">${result.strategy.recommendations}</p>` : ''}
+          </div>
+        `;
+
+        startBtn.style.display = 'none';
+        stopBtn.style.display = 'block';
+
+        this.showStatus('AI extraction started successfully');
+      } else {
+        const errorMsg = response?.error || 'Failed to start AI mode';
+        throw new Error(errorMsg);
+      }
+    } catch (error) {
+      console.error('Error starting AI mode:', error);
+
+      // Handle specific error types
+      if (error.message && error.message.includes('Could not establish connection')) {
+        statusDiv.innerHTML = `
+          <p class="text-error">⚠️ Extension not ready</p>
+          <p style="font-size: 11px; margin-top: 8px;">Please <strong>refresh the LinkedIn page</strong> and try again.</p>
+        `;
+        this.showStatus('Please refresh the LinkedIn page', 'error');
+      } else if (error.message && error.message.includes('API key')) {
+        statusDiv.innerHTML = `
+          <p class="text-error">⚠️ OpenRouter API key required</p>
+          <p style="font-size: 11px; margin-top: 8px;">Please configure your API key in the <strong>Automation & AI</strong> tab.</p>
+        `;
+        this.showStatus('API key required', 'error');
+      } else {
+        statusDiv.innerHTML = `<p class="text-error">Error: ${error.message}</p>`;
+        this.showStatus('Error starting AI mode', 'error');
+      }
+
+      startBtn.disabled = false;
+      startBtn.textContent = '🚀 Start AI Extraction';
+    }
+  }
+
+  async stopAIMode() {
+    const statusDiv = document.getElementById('ai-mode-status');
+    const startBtn = document.getElementById('start-ai-mode-btn');
+    const stopBtn = document.getElementById('stop-ai-mode-btn');
+
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs[0]) {
+        await chrome.tabs.sendMessage(tabs[0].id, {
+          type: 'STOP_AI_MODE'
+        });
+      }
+
+      statusDiv.innerHTML = '<p class="text-muted">AI mode is inactive</p>';
+      startBtn.style.display = 'block';
+      startBtn.disabled = false;
+      stopBtn.style.display = 'none';
+
+      this.showStatus('AI mode stopped');
+    } catch (error) {
+      console.error('Error stopping AI mode:', error);
+      this.showStatus('Error stopping AI mode', 'error');
+    }
+  }
+
+  formatPageType(pageType) {
+    const typeMap = {
+      'job_listing': 'Job Listing',
+      'job_search': 'Job Search',
+      'feed': 'Feed',
+      'post_detail': 'Post Detail',
+      'profile': 'Profile',
+      'search_results': 'Search Results',
+      'people_search': 'People Search',
+      'company_page': 'Company Page',
+      'messaging': 'Messaging',
+      'unknown': 'Unknown'
+    };
+
+    return typeMap[pageType] || pageType;
   }
 }
 

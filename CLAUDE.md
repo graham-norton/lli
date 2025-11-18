@@ -1,448 +1,492 @@
-# LinkedIn Lead Finder - Chrome Extension Plan
+# LinkedIn Lead Finder - Chrome Extension
 
-## Project Overview
-A Chrome extension that monitors LinkedIn posts for specific keywords, extracts email addresses and phone numbers, and automatically exports the data to a Google Sheet.
+## Overview for AI Assistants
+
+This document provides a comprehensive guide to the LinkedIn Lead Finder Chrome extension codebase. It's designed to help AI assistants understand the project structure, development conventions, and key implementation details.
+
+## Project Status
+
+**Status**: ✅ Fully Functional Chrome Extension
+**Version**: 1.0.0
+**Manifest Version**: V3
+**Total Lines of Code**: ~3,500
+
+### Implemented Features
+
+✅ **Core Functionality**
+- Keyword-based post scanning on LinkedIn
+- Email and phone number extraction
+- Google Sheets export integration
+- Real-time post monitoring with MutationObserver
+- Visual feedback (post highlighting, badges, stats counter)
+- Chrome storage for keywords, settings, and leads
+
+✅ **Advanced Features** (Recently Added)
+- **AI-Powered Lead Relevance Filtering**: Uses OpenRouter API to assess if leads match company profile
+- **AI Keyword Generation**: Automatically generates search keywords based on company profile
+- **Automated Search**: Cycles through keywords automatically, navigating LinkedIn search
+- **Auto-scroll and scan**: Scrolls through search results to find more leads
+- **Post expansion**: Automatically expands truncated LinkedIn posts before extraction
+
+✅ **UI Features**
+- Multi-tab popup interface (Keywords, Google Sheets, Statistics, Settings, AI Features)
+- Real-time statistics dashboard
+- Connection status indicators
+- Settings with multiple scan modes and options
 
 ## Architecture
 
-### 1. Extension Structure
+### Directory Structure
+
 ```
-linkedin-lead-finder/
-├── manifest.json                 # Extension configuration
+lli/
+├── manifest.json              # Extension manifest (OAuth config, permissions)
 ├── popup/
-│   ├── popup.html               # Extension popup UI
-│   ├── popup.css                # Popup styling
-│   └── popup.js                 # Popup logic
+│   ├── popup.html            # Popup UI with tab interface
+│   ├── popup.css             # Styling for popup
+│   └── popup.js              # Popup controller (~950 lines)
 ├── content/
-│   ├── content.js               # Content script (runs on LinkedIn pages)
-│   └── content.css              # Optional styling for overlays
+│   ├── content.js            # LinkedIn scanner (~880 lines)
+│   └── content.css           # Visual feedback styles
 ├── background/
-│   ├── background.js            # Service worker for API calls
-│   └── storage.js               # Data management
+│   ├── background.js         # Service worker (~380 lines)
+│   └── storage.js            # Storage management utilities
 ├── utils/
-│   ├── extractor.js             # Email/phone extraction logic
-│   ├── matcher.js               # Keyword matching logic
-│   └── googleSheets.js          # Google Sheets API integration
-├── icons/
-│   ├── icon16.png
-│   ├── icon48.png
-│   └── icon128.png
-└── config/
-    └── constants.js             # Configuration constants
+│   ├── extractor.js          # Email/phone extraction (~150 lines)
+│   ├── matcher.js            # Keyword matching (~100 lines)
+│   └── googleSheets.js       # Google Sheets API integration (~500 lines)
+├── config/
+│   └── constants.js          # Configuration constants
+├── icons/                     # Extension icons (16x16, 48x48, 128x128)
+├── test-utils.html           # Standalone utility tester
+├── icon-generator.html       # Icon generator tool
+├── README.md                 # User documentation
+├── SETUP_GUIDE.md           # Setup instructions
+└── NEXT_STEPS.md            # Getting started guide
 ```
 
-## Core Features
+## Key Files and Responsibilities
 
-### 2. Manifest Configuration (manifest.json)
-- **Manifest Version**: V3
-- **Permissions**:
-  - `activeTab` - Access current tab
-  - `storage` - Store keywords and settings
-  - `identity` - Google OAuth
-  - `scripting` - Inject content scripts
-- **Host Permissions**:
-  - `https://www.linkedin.com/*`
-  - `https://sheets.googleapis.com/*`
-- **Content Scripts**: Auto-inject on LinkedIn pages
-- **Background Service Worker**: Handle API calls and data processing
+### 1. manifest.json
+**Purpose**: Extension configuration and permissions
+**Key Details**:
+- OAuth 2.0 client ID for Google Sheets API
+- Host permissions: LinkedIn, Google Sheets API, OpenRouter AI
+- Content scripts inject on all LinkedIn pages
+- Service worker: `background/background.js`
 
-### 3. Popup Interface (popup.html + popup.js)
+**Important**: When modifying permissions or host_permissions, extension must be reloaded.
 
-#### Features:
-1. **Keyword Management**
-   - Add/remove keywords
-   - Display list of active keywords
-   - Import/export keyword lists
-   - Case-sensitive toggle
+### 2. content/content.js - LinkedInScanner Class
+**Purpose**: Main content script that scans LinkedIn posts
+**Key Responsibilities**:
+- Initialize and configure scanner with keywords and settings
+- Monitor DOM for new posts using MutationObserver
+- Extract post data (content, author, URL)
+- Match keywords using KeywordMatcher
+- Extract contacts using ContactExtractor
+- AI relevance filtering (if enabled)
+- Visual feedback (highlighting, badges)
+- Auto-search functionality (navigate to keywords, scroll, scan)
 
-2. **Google Sheets Configuration**
-   - Google account authentication
-   - Sheet selection dropdown
-   - Test connection button
-   - Auto-sync toggle
+**Important Methods**:
+- `init()`: Initialize scanner and load config
+- `scanPost(postElement)`: Scan a single post for matches
+- `expandPostContent(postElement)`: Click "see more" buttons to expand truncated posts
+- `extractPostData(postElement)`: Extract content, author, URL from post
+- `evaluateLeadWithAI(lead)`: Send lead to AI for relevance check
+- `processAutoSearchState()`: Handle automated search cycling
+- `navigateToKeyword(keyword)`: Navigate to LinkedIn search for keyword
 
-3. **Statistics Dashboard**
-   - Total leads found
-   - Emails extracted
-   - Phone numbers extracted
-   - Last sync time
+**State Management**:
+- `scannedPosts`: Set of post IDs already scanned (prevents duplicates)
+- `leads`: Array of found leads
+- `stats`: Stats object (totalLeads, emailsFound, phonesFound)
 
-4. **Settings**
-   - Scan interval (real-time vs manual)
-   - Auto-export toggle
-   - Notification preferences
-   - Data retention settings
+**LinkedIn DOM Selectors**:
+The extension uses multiple selectors as fallbacks since LinkedIn frequently changes their HTML structure. See `collectPostElements()` for the full list.
 
-### 4. Content Script (content.js)
+**Convention**: Always use multiple selector fallbacks when querying LinkedIn DOM elements.
 
-#### Responsibilities:
-1. **Page Monitoring**
-   - Detect LinkedIn feed posts
-   - Monitor for new posts (infinite scroll)
-   - Handle dynamic content loading
+### 3. popup/popup.js - PopupController Class
+**Purpose**: Manages popup UI and user interactions
+**Key Responsibilities**:
+- Render and manage 5 tabs: Keywords, Google Sheets, Statistics, Settings, AI Features
+- Load/save keywords and settings to Chrome storage
+- Handle Google authentication flow
+- Display real-time statistics
+- Configure AI features (relevance filtering, keyword generation)
+- Trigger auto-search
 
-2. **Post Scanning**
-   - Extract post text content
-   - Match against keyword list
-   - Identify post author
-   - Extract post URL and timestamp
+**Important Methods**:
+- `init()`: Initialize popup, load data, setup listeners
+- `addKeyword()`: Add keyword to list
+- `removeKeyword(index)`: Remove keyword
+- `handleAuth()`: Authenticate with Google OAuth
+- `testConnection()`: Test Google Sheets connection
+- `exportNow()`: Manually trigger export
+- `generateKeywords()`: Call AI to generate keywords
+- `enableAutoSearch()`: Start automated search
 
-3. **Contact Extraction**
-   - Scan post text for emails (regex)
-   - Scan post text for phone numbers (regex)
-   - Scan comments if available
-   - Extract from "Contact Info" sections
+**Storage Keys**:
+- `chrome.storage.sync`: keywords, settings (synced across devices)
+- `chrome.storage.local`: leads, stats, googleToken, sheetId (local only)
 
-4. **Visual Feedback**
-   - Highlight matched posts
-   - Show badge/icon on matched posts
-   - Display extraction status
+### 4. background/background.js - Service Worker
+**Purpose**: Handle background tasks and API calls
+**Key Responsibilities**:
+- Google OAuth token management
+- Google Sheets API calls (export, test connection)
+- OpenRouter AI API calls (relevance filtering, keyword generation)
+- Lead queue management
+- Auto-export functionality
 
-#### Implementation Details:
-```javascript
-// Example structure
-class LinkedInScanner {
-  constructor(keywords) {
-    this.keywords = keywords;
-    this.observer = null;
-    this.scannedPosts = new Set();
-  }
+**Message Types** (listen for these from content/popup):
+- `NEW_LEAD`: New lead found, potentially auto-export
+- `AUTHENTICATE_GOOGLE`: Trigger OAuth flow
+- `TEST_SHEET_CONNECTION`: Test Sheets connection
+- `EXPORT_NOW`: Export all pending leads
+- `ASSESS_LEAD_RELEVANCE`: Send lead to AI for filtering
+- `GENERATE_KEYWORDS`: Generate keywords with AI
 
-  init() {
-    // Start MutationObserver
-    // Scan existing posts
-    // Listen for new posts
-  }
+**API Integrations**:
+- Google Sheets API v4 (via googleSheets.js)
+- OpenRouter API (for AI features)
 
-  scanPost(postElement) {
-    // Extract post data
-    // Check keywords
-    // Extract contacts
-    // Send to background script
-  }
-}
+### 5. utils/extractor.js - ContactExtractor Class
+**Purpose**: Extract emails and phone numbers from text
+**Methods**:
+- `extractEmails(text)`: Returns array of emails
+- `extractPhones(text)`: Returns array of phone numbers
+- `extractAll(text)`: Returns `{emails: [], phones: []}`
+
+**Regex Patterns**:
+- Email: `/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g`
+- Phone (multiple patterns for US and international formats)
+
+**Filtering**: Includes blacklists for common false positives (e.g., example.com, 1234567890)
+
+### 6. utils/matcher.js - KeywordMatcher Class
+**Purpose**: Match keywords against text
+**Options**:
+- `caseSensitive`: Match exact case
+- `wholeWord`: Match complete words only
+
+**Method**:
+- `match(text)`: Returns `{matched: boolean, keywords: []}`
+
+### 7. utils/googleSheets.js - GoogleSheetsService Class
+**Purpose**: Google Sheets API integration
+**Methods**:
+- `setAuth(token)`: Set OAuth token
+- `testConnection(sheetId)`: Test if sheet is accessible
+- `getSheetInfo(sheetId)`: Get sheet metadata
+- `appendLeads(sheetId, leads)`: Append leads to sheet
+- `ensureHeaders(sheetId)`: Ensure headers exist in sheet
+
+**Sheet Format**:
+```
+| Timestamp | Post URL | Author | Keywords Matched | Post Content | Emails | Phone Numbers | Status |
 ```
 
-### 5. Background Service Worker (background.js)
+## Data Models
 
-#### Responsibilities:
-1. **Message Handling**
-   - Receive extracted data from content script
-   - Process and validate data
-   - Manage data queue
-
-2. **Storage Management**
-   - Store leads in Chrome storage
-   - Prevent duplicates
-   - Manage cache
-
-3. **Google Sheets Integration**
-   - Authenticate with Google
-   - Batch write to sheets
-   - Handle API rate limits
-   - Retry failed requests
-
-4. **Notifications**
-   - Alert user of new leads
-   - Report export status
-   - Error notifications
-
-### 6. Data Extraction (extractor.js)
-
-#### Email Extraction:
-```javascript
-const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-```
-
-#### Phone Number Extraction:
-```javascript
-// Multiple formats support
-const phoneRegexes = [
-  /(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g,  // US format
-  /\+?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}/g,     // International
-];
-```
-
-#### Data Validation:
-- Verify email format
-- Validate phone number length
-- Remove false positives
-- Check against blacklist
-
-### 7. Keyword Matching (matcher.js)
-
-#### Features:
-- Case-sensitive/insensitive matching
-- Whole word matching
-- Partial matching support
-- Multiple keyword OR logic
-- Keyword grouping (AND logic)
-- Regex pattern support
-
-#### Example:
-```javascript
-function matchKeywords(text, keywords, options) {
-  const { caseSensitive, wholeWord } = options;
-
-  return keywords.some(keyword => {
-    const searchText = caseSensitive ? text : text.toLowerCase();
-    const searchKeyword = caseSensitive ? keyword : keyword.toLowerCase();
-
-    if (wholeWord) {
-      const regex = new RegExp(`\\b${searchKeyword}\\b`, 'g');
-      return regex.test(searchText);
-    }
-
-    return searchText.includes(searchKeyword);
-  });
-}
-```
-
-### 8. Google Sheets Integration (googleSheets.js)
-
-#### Setup:
-1. **Google Cloud Console**
-   - Create project
-   - Enable Google Sheets API
-   - Create OAuth 2.0 credentials
-   - Set redirect URI: `https://<extension-id>.chromiumapp.org/`
-
-2. **Authentication Flow**
-   - Use Chrome Identity API
-   - Get OAuth token
-   - Store token securely
-   - Handle token refresh
-
-#### Sheet Structure:
-```
-| Timestamp | Post URL | Author | Keyword Matched | Post Content | Email | Phone | Status |
-|-----------|----------|--------|-----------------|--------------|-------|-------|--------|
-```
-
-#### API Operations:
-```javascript
-class GoogleSheetsService {
-  async authenticate() {
-    // OAuth flow
-  }
-
-  async appendRows(data) {
-    // Batch append to sheet
-    // Handle rate limits
-  }
-
-  async checkDuplicates(email) {
-    // Query existing data
-  }
-}
-```
-
-### 9. Data Model
-
-#### Lead Object:
+### Lead Object
 ```javascript
 {
-  id: "unique-id",
+  id: "unique-post-id",
   timestamp: "2024-01-15T10:30:00Z",
   postUrl: "https://linkedin.com/posts/...",
   authorName: "John Doe",
   authorProfile: "https://linkedin.com/in/johndoe",
   keywordMatched: ["hiring", "developer"],
   postContent: "Full post text...",
-  email: "john@example.com",
-  phone: "+1-234-567-8900",
-  exported: true,
-  exportedAt: "2024-01-15T10:31:00Z"
+  emails: ["john@example.com"],
+  phones: ["+1-234-567-8900"],
+  exported: false,
+  aiDecision: {
+    relevant: true,
+    reason: "Matches company profile",
+    score: 0.85
+  }
 }
 ```
 
-### 10. Storage Strategy
+### Settings Object
+```javascript
+{
+  caseSensitive: false,
+  wholeWord: false,
+  autoSync: true,
+  scanMode: 'auto',  // 'auto' or 'manual'
+  enableNotifications: true,
+  highlightPosts: true,
+  scanComments: false,
+  scanIntervalMs: 15000,
+  autoSearchEnabled: false,
+  autoSearchDelay: 20000,
+  autoScrollEnabled: true,
+  autoScrollCycles: 6,
+  autoScrollDelay: 1500,
+  aiRelevanceEnabled: false,
+  companyProfile: '',
+  openRouterModel: 'openrouter/openai/gpt-4o-mini'
+}
+```
 
-#### Chrome Storage Sync:
-- Keywords list
-- Settings/preferences
-- Google Sheet ID
-- Max 100KB
+## Development Workflows
 
-#### Chrome Storage Local:
-- Leads data (cached)
-- Export queue
-- Session data
-- Max 10MB (can request unlimited)
+### Adding a New Feature
 
-#### IndexedDB (optional):
-- Large datasets
-- Full lead history
-- Offline support
+1. **Plan the feature**: Understand what needs to be changed in which files
+2. **Update manifest.json**: Add any new permissions or host_permissions
+3. **Implement in appropriate file**:
+   - Content script logic → `content/content.js`
+   - UI/popup logic → `popup/popup.js` + `popup/popup.html`
+   - Background processing → `background/background.js`
+   - Utility functions → `utils/*.js`
+4. **Update settings**: If new setting, add to `getDefaultSettings()` in both content.js and popup.js
+5. **Update UI**: Add controls to popup.html if needed
+6. **Test**: Load unpacked extension, test on LinkedIn
+7. **Update documentation**: Update README.md if user-facing
 
-## Implementation Phases
+### Testing the Extension
 
-### Phase 1: Basic Extension Setup (Week 1)
-- [ ] Create manifest.json with basic permissions
-- [ ] Build popup UI with keyword input
-- [ ] Implement keyword storage
-- [ ] Create basic content script
-- [ ] Scan visible posts for keywords
+**Manual Testing**:
+1. Go to `chrome://extensions/`
+2. Enable Developer mode
+3. Click "Load unpacked"
+4. Select the `lli` directory
+5. Navigate to LinkedIn and test functionality
 
-### Phase 2: Content Extraction (Week 1-2)
-- [ ] Implement email extraction
-- [ ] Implement phone number extraction
-- [ ] Build data validation
-- [ ] Add duplicate detection
-- [ ] Test extraction accuracy
+**Utility Testing**:
+- Open `test-utils.html` in browser to test extraction and matching utilities standalone
 
-### Phase 3: Google Sheets Integration (Week 2)
-- [ ] Set up Google Cloud project
-- [ ] Implement OAuth authentication
-- [ ] Build Sheets API service
-- [ ] Test data export
-- [ ] Handle API errors and rate limits
+**Debugging**:
+- Content script: Press F12 on LinkedIn page
+- Popup: Right-click extension icon → "Inspect popup"
+- Background: Go to `chrome://extensions/` → "Inspect views: service worker"
 
-### Phase 4: Advanced Features (Week 3)
-- [ ] Add MutationObserver for infinite scroll
-- [ ] Implement visual feedback on posts
-- [ ] Add statistics dashboard
-- [ ] Build notification system
-- [ ] Create export queue management
+### Common Tasks
 
-### Phase 5: Polish & Testing (Week 3-4)
-- [ ] Error handling and recovery
-- [ ] Performance optimization
-- [ ] Cross-browser testing
-- [ ] User acceptance testing
-- [ ] Documentation
+**Adding a keyword**:
+1. User types keyword in popup
+2. `popup.js` adds to `keywords` array
+3. Save to `chrome.storage.sync`
+4. Storage listener in `content.js` updates matcher
+5. Scanner rescans visible posts
 
-## Technical Considerations
+**Finding a lead**:
+1. Content script detects new post (MutationObserver)
+2. Expand post content if truncated
+3. Extract post data (content, author, URL)
+4. Match keywords
+5. If matched: extract contacts
+6. If AI enabled: assess relevance
+7. If relevant: save lead, highlight post, update stats
+8. If auto-sync: background exports to Sheets
 
-### Security:
-- Store OAuth tokens securely
-- Sanitize extracted data
-- Validate all inputs
-- Use HTTPS for all API calls
-- Implement CSP in manifest
+**Exporting to Sheets**:
+1. User clicks "Export Now" or auto-export triggers
+2. Message sent to background: `EXPORT_NOW`
+3. Background retrieves leads from storage
+4. Authenticates with Google OAuth
+5. Calls `googleSheets.appendLeads()`
+6. Marks leads as exported
+7. Updates stats
 
-### Performance:
-- Debounce scroll events
-- Batch API requests
-- Use efficient DOM queries
-- Lazy load components
-- Limit cache size
+## AI Features (OpenRouter Integration)
 
-### Privacy:
-- Clear data disclosure
-- User consent for data export
-- Option to clear data
-- Comply with LinkedIn ToS
-- No data sent to third parties (except Google Sheets)
+### AI Lead Relevance Filtering
 
-### Rate Limiting:
-- LinkedIn scraping limits
-- Google Sheets API quota (100 requests/100 seconds)
-- Implement exponential backoff
-- Queue management
+**How it works**:
+1. User enables "AI Relevance Filtering" in AI Features tab
+2. User provides company profile (what kind of leads they want)
+3. When lead is found, send to OpenRouter API via background script
+4. AI evaluates if lead matches profile
+5. If not relevant, lead is discarded (not saved or exported)
 
-### Error Handling:
-- Network failures
-- LinkedIn page structure changes
-- Google Sheets API errors
-- Storage quota exceeded
-- Invalid credentials
+**API Endpoint**: `https://openrouter.ai/api/v1/chat/completions`
 
-## Dependencies
+**Prompt Template** (in background.js):
+```
+You are a lead qualification assistant. Determine if this LinkedIn post is relevant...
+Company Profile: [user's profile]
+Post Content: [post text]
+Return: {relevant: boolean, reason: string, score: number}
+```
 
-### Required:
-- Chrome Extensions API (built-in)
-- Google Sheets API v4
-- No external libraries (vanilla JS preferred)
+**Models**: Free models from OpenRouter (46 available, see popup.js)
 
-### Optional:
-- jQuery (if needed for DOM manipulation)
-- Papa Parse (CSV export fallback)
-- Luxon (date/time handling)
+### AI Keyword Generation
 
-## Testing Strategy
+**How it works**:
+1. User clicks "Generate Keywords" in AI Features tab
+2. Sends company profile to OpenRouter API
+3. AI generates 10-15 relevant search keywords
+4. Keywords automatically added to keyword list
+5. If auto-search enabled, starts searching immediately
 
-### Unit Tests:
-- Email/phone extraction functions
-- Keyword matching logic
-- Data validation
+**Convention**: AI features should gracefully degrade if API unavailable (default to relevant=true)
 
-### Integration Tests:
-- Content script ↔ Background script communication
-- Google Sheets API integration
-- Storage operations
+## Key Conventions for AI Assistants
 
-### Manual Testing:
-- Different LinkedIn page layouts
-- Various post formats
-- Edge cases (special characters, multiple emails, etc.)
-- Performance with large datasets
+### Code Style
+- Use ES6+ JavaScript (classes, async/await, arrow functions)
+- Use descriptive variable names
+- Add comments for complex logic
+- Use `console.log()` for debugging (visible in respective contexts)
 
-## Deployment
+### Chrome Extension Patterns
+- **Message Passing**: Use `chrome.runtime.sendMessage()` for content ↔ background communication
+- **Storage**: Use `chrome.storage.sync` for settings, `chrome.storage.local` for data
+- **Storage Listeners**: Listen for changes with `chrome.storage.onChanged`
+- **OAuth**: Use `chrome.identity.launchWebAuthFlow()` for Google OAuth
+- **Permissions**: Always check if new APIs require additional permissions
 
-### Chrome Web Store:
-1. Create developer account ($5 fee)
-2. Prepare assets (screenshots, description)
-3. Submit for review
-4. Address review feedback
-5. Publish
+### LinkedIn DOM Handling
+- **Always use multiple selectors**: LinkedIn changes DOM frequently
+- **Normalize elements**: Use `closest()` to find parent post element
+- **Check visibility**: Use `offsetParent !== null` before clicking buttons
+- **Debounce**: Don't scan the same post twice (use `scannedPosts` Set)
+- **Expand content**: Always try to expand "see more" before extraction
 
-### Updates:
-- Version management
-- Changelog
-- User notifications
-- Backward compatibility
+### Error Handling
+- Wrap async operations in try-catch
+- Log errors with context: `console.error('Error scanning post:', error)`
+- Fail gracefully: If one post fails, continue with others
+- Provide user feedback: Use notifications or status messages
 
-## Potential Challenges
+### Storage Management
+- **Sync storage limits**: Max 100KB (use for keywords, settings)
+- **Local storage limits**: Max 10MB (use for leads, cache)
+- **Clear old data**: Provide "Clear All Data" option
+- **Batch operations**: Don't save on every change, batch when possible
 
-1. **LinkedIn DOM Changes**: LinkedIn frequently updates their UI
-   - Solution: Use flexible selectors, implement fallbacks
+### API Rate Limiting
+- **Google Sheets**: 100 requests per 100 seconds
+- **OpenRouter**: Varies by model and plan
+- **Implement delays**: Wait between batch operations
+- **Queue management**: Queue leads, export in batches
 
-2. **Rate Limiting**: Too many requests to Google Sheets
-   - Solution: Batch operations, implement queue
+### Security Considerations
+- **No sensitive data in code**: OAuth client ID is public, but token stored securely
+- **Sanitize inputs**: Validate user inputs (keywords, sheet IDs)
+- **CSP compliance**: No inline scripts, use external files
+- **LinkedIn ToS**: Respect rate limits, don't spam
 
-3. **False Positives**: Extracting incorrect emails/phones
-   - Solution: Strict regex, validation, manual review option
+## Recent Development History
 
-4. **Privacy Concerns**: Scraping user data
-   - Solution: Clear ToS, user consent, ethical usage guidelines
+Based on recent commits:
 
-5. **Content Script Performance**: Heavy DOM monitoring
-   - Solution: Debouncing, efficient observers, lazy loading
+1. **e52d0d3**: Fix to trigger auto search immediately after AI keyword generation
+2. **de37229**: Added AI auto-search trigger and keyword generator
+3. **cf6289c**: Added automatic post expansion before scanning
+4. **efd5541**: Auto-populated free OpenRouter models in dropdown
+5. **b80c032**: Expanded OpenRouter model options
+6. **0d9c7ae**: Added automated LinkedIn search and AI relevance filtering
 
-## Future Enhancements
+**Development Trend**: Focus on AI-powered automation and improved content extraction
 
-- Export to multiple destinations (CSV, Airtable, CRM)
-- AI-powered lead qualification
-- Advanced filtering (job titles, locations)
-- Bulk operations
-- Team collaboration features
-- Analytics and reporting
-- Custom field mapping
-- Webhook support
-- Browser extension for Firefox/Edge
+## Important Files for Quick Reference
 
-## Success Metrics
+| File | Lines | Key Responsibility |
+|------|-------|-------------------|
+| `content/content.js` | ~880 | LinkedIn scanning, DOM interaction |
+| `popup/popup.js` | ~950 | UI management, user interactions |
+| `utils/googleSheets.js` | ~500 | Google Sheets API integration |
+| `background/background.js` | ~380 | Service worker, API orchestration |
+| `utils/extractor.js` | ~150 | Email/phone extraction |
+| `utils/matcher.js` | ~100 | Keyword matching |
+| `config/constants.js` | ~187 | Configuration constants |
 
-- Extraction accuracy (>95%)
-- Performance (scan without lag)
-- Export reliability (>99%)
-- User retention
-- Positive reviews
+## Testing Checklist
+
+When making changes, test these flows:
+
+- [ ] Add/remove keywords in popup
+- [ ] Keywords sync to content script
+- [ ] Posts are scanned and highlighted
+- [ ] Emails and phones are extracted correctly
+- [ ] Google authentication works
+- [ ] Google Sheets export works
+- [ ] Statistics update in real-time
+- [ ] Settings persist across sessions
+- [ ] Auto-search navigates through keywords
+- [ ] AI relevance filtering works (if enabled)
+- [ ] AI keyword generation works
+- [ ] Extension works after browser restart
+
+## Troubleshooting Common Issues
+
+### Extension not loading
+- Check manifest.json syntax (valid JSON)
+- Check for console errors in background service worker
+- Verify all files are present
+
+### Posts not being scanned
+- Check if keywords are added
+- Check scan mode is set to "auto"
+- Check LinkedIn selectors (may need update if LinkedIn changes)
+- Refresh LinkedIn page after changing settings
+
+### Google Sheets not working
+- Verify OAuth client ID in manifest.json
+- Check redirect URI matches extension ID
+- Test connection in popup
+- Check Google Sheets API is enabled in Google Cloud Console
+
+### AI features not working
+- Check OpenRouter API is accessible
+- Verify model ID is valid
+- Check network tab for API errors
+- Ensure API key (if needed) is configured
+
+## Future Enhancement Ideas
+
+Based on current architecture, these would be natural next steps:
+
+- [ ] Support for other data sources (Twitter, Facebook)
+- [ ] CRM integrations (Salesforce, HubSpot)
+- [ ] Custom field mapping for Google Sheets
+- [ ] Lead scoring based on multiple criteria
+- [ ] Email templates for outreach
+- [ ] Analytics dashboard
+- [ ] Team collaboration features
+- [ ] Export to CSV/Excel
+- [ ] Scheduled scanning
+- [ ] Webhook notifications
+
+## Important Notes for AI Development
+
+1. **Always test changes in a live Chrome extension environment** - Don't assume code will work
+2. **LinkedIn's DOM is fragile** - Use multiple fallback selectors
+3. **Respect rate limits** - Batch operations, add delays
+4. **Maintain backward compatibility** - Settings should have defaults
+5. **User privacy** - No data sent to third parties except Google Sheets and OpenRouter
+6. **Error recovery** - If one feature breaks, others should continue working
+7. **Documentation** - Update README.md for user-facing changes
+8. **Chrome APIs change** - Test on latest Chrome version
 
 ## Resources
 
-- [Chrome Extensions Documentation](https://developer.chrome.com/docs/extensions/)
-- [Google Sheets API](https://developers.google.com/sheets/api)
+- [Chrome Extensions Manifest V3 Docs](https://developer.chrome.com/docs/extensions/mv3/)
+- [Chrome Storage API](https://developer.chrome.com/docs/extensions/reference/storage/)
 - [Chrome Identity API](https://developer.chrome.com/docs/extensions/reference/identity/)
-- [LinkedIn Developer Policies](https://www.linkedin.com/legal/l/api/li-api-terms-of-use)
+- [Google Sheets API v4](https://developers.google.com/sheets/api)
+- [OpenRouter API](https://openrouter.ai/docs)
+- [MutationObserver MDN](https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver)
+
+## Contact & Support
+
+For issues or questions about the codebase:
+- Check browser console for error messages
+- Review recent commits for context
+- Test in isolated environment (test-utils.html)
+- Verify Chrome extension fundamentals first
 
 ---
 
-## Notes
-
-- Always respect LinkedIn's Terms of Service
-- Consider rate limiting to avoid detection
-- Provide clear value to users
-- Focus on ethical use cases
-- Build with privacy in mind
+**Last Updated**: 2025-11-17
+**Current Branch**: `claude/claude-md-mi3a47bh6emkt243-01TAopG7dvkaQd15vzBB3NvN`
+**Status**: Production-ready, actively maintained

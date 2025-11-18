@@ -97,6 +97,15 @@ async function handleMessage(message, sender, sendResponse) {
         sendResponse(keywordResult);
         break;
 
+      case 'AI_ANALYZE_HTML':
+        const analysisResult = await analyzeHtmlWithAI(
+          message.prompt,
+          message.userGoal,
+          message.pageUrl
+        );
+        sendResponse(analysisResult);
+        break;
+
       default:
         sendResponse({ success: false, error: 'Unknown message type' });
     }
@@ -553,6 +562,81 @@ Return 5-10 concise LinkedIn search keyword phrases (no hashtags) focused on thi
   } catch (error) {
     console.error('Keyword generation failed:', error);
     return { success: false, error: error.message || 'Failed to generate keywords' };
+  }
+}
+
+async function analyzeHtmlWithAI(prompt, userGoal, pageUrl) {
+  try {
+    const { openRouterKey } = await chrome.storage.local.get(['openRouterKey']);
+
+    if (!openRouterKey) {
+      return {
+        success: false,
+        error: 'OpenRouter API key not configured. Please add your API key in Settings.'
+      };
+    }
+
+    // Get model preference
+    const syncData = await chrome.storage.sync.get(['settings']);
+    const model = syncData.settings?.openRouterModel || 'openrouter/openai/gpt-4o-mini';
+
+    console.log('🤖 Sending HTML to AI for analysis...');
+    console.log(`Model: ${model}`);
+    console.log(`User goal: ${userGoal}`);
+
+    const body = {
+      model,
+      temperature: 0.3,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a web scraping expert specializing in LinkedIn data extraction. Analyze HTML and generate precise extraction strategies. Always return valid JSON.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ]
+    };
+
+    const response = await fetch(OPENROUTER_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openRouterKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': pageUrl || 'https://linkedin.com',
+        'X-Title': 'LinkedIn Lead Finder'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenRouter API error:', errorText);
+      throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    const content = data?.choices?.[0]?.message?.content?.trim();
+
+    if (!content) {
+      throw new Error('Empty response from AI');
+    }
+
+    console.log('✅ AI analysis received');
+    console.log('Response length:', content.length, 'chars');
+
+    return {
+      success: true,
+      data: content
+    };
+
+  } catch (error) {
+    console.error('AI HTML analysis failed:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to analyze HTML with AI'
+    };
   }
 }
 

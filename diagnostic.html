@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Co-Pilot Diagnostic Tool</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #0077b5;
+        }
+        .test {
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 3px solid #ccc;
+            background: #f9f9f9;
+        }
+        .test.pass {
+            border-color: #4caf50;
+            background: #e8f5e9;
+        }
+        .test.fail {
+            border-color: #f44336;
+            background: #ffebee;
+        }
+        .test-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        button {
+            background: #0077b5;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #005885;
+        }
+        .code {
+            background: #272822;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Co-Pilot Diagnostic Tool</h1>
+
+    <div class="card">
+        <h2>Purpose</h2>
+        <p>This tool tests if the Co-Pilot components can load correctly. Use this to diagnose issues.</p>
+        <button onclick="runTests()">🚀 Run Diagnostic Tests</button>
+    </div>
+
+    <div class="card" id="results" style="display: none;">
+        <h2>Test Results</h2>
+        <div id="test-output"></div>
+    </div>
+
+    <div class="card" id="instructions">
+        <h2>📋 Troubleshooting Steps</h2>
+        <ol>
+            <li><strong>Reload the Extension</strong>
+                <ul>
+                    <li>Go to <code>chrome://extensions/</code></li>
+                    <li>Find "LinkedIn Lead Finder"</li>
+                    <li>Click the reload icon (🔄)</li>
+                </ul>
+            </li>
+            <li><strong>Check for Errors</strong>
+                <ul>
+                    <li>Click "Inspect views: service worker" on the extension page</li>
+                    <li>Look for red errors in the console</li>
+                </ul>
+            </li>
+            <li><strong>Test on LinkedIn</strong>
+                <ul>
+                    <li>Go to <a href="https://www.linkedin.com/feed/" target="_blank">LinkedIn Feed</a></li>
+                    <li>Press F5 to refresh the page</li>
+                    <li>Open browser console (F12)</li>
+                    <li>Look for: "✅ Intelligent mode components initialized successfully"</li>
+                </ul>
+            </li>
+            <li><strong>Verify Files Loaded</strong>
+                <ul>
+                    <li>On LinkedIn, open console (F12)</li>
+                    <li>Type: <code>typeof LinkedInPageAnalyzer</code></li>
+                    <li>Should return: "function"</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+
+    <div class="card">
+        <h2>💡 Common Issues</h2>
+        <ul>
+            <li><strong>"Could not establish connection"</strong> → Refresh the LinkedIn page</li>
+            <li><strong>"Co-pilot components failed to initialize"</strong> → Reload the extension</li>
+            <li><strong>"Class is not defined"</strong> → Check manifest.json script order</li>
+            <li><strong>No response from button clicks</strong> → Check if you're on a LinkedIn page</li>
+        </ul>
+    </div>
+
+    <script src="utils/extractor.js"></script>
+    <script src="utils/matcher.js"></script>
+    <script src="utils/pageAnalyzer.js"></script>
+    <script src="utils/goalEngine.js"></script>
+    <script src="utils/intelligentExtractor.js"></script>
+
+    <script>
+        function addTest(name, passed, details = '') {
+            const output = document.getElementById('test-output');
+            const test = document.createElement('div');
+            test.className = `test ${passed ? 'pass' : 'fail'}`;
+            test.innerHTML = `
+                <div class="test-name">${passed ? '✅' : '❌'} ${name}</div>
+                ${details ? `<div class="test-details">${details}</div>` : ''}
+            `;
+            output.appendChild(test);
+        }
+
+        function runTests() {
+            const output = document.getElementById('test-output');
+            const results = document.getElementById('results');
+
+            output.innerHTML = '';
+            results.style.display = 'block';
+
+            // Test 1: ContactExtractor
+            try {
+                const extractor = new ContactExtractor();
+                const testEmail = extractor.extractEmails('Contact me at test@example.com');
+                addTest('ContactExtractor', testEmail.length > 0, 'Email extraction works');
+            } catch (e) {
+                addTest('ContactExtractor', false, `Error: ${e.message}`);
+            }
+
+            // Test 2: KeywordMatcher
+            try {
+                const matcher = new KeywordMatcher(['test']);
+                const result = matcher.match('This is a test');
+                addTest('KeywordMatcher', result.matched, 'Keyword matching works');
+            } catch (e) {
+                addTest('KeywordMatcher', false, `Error: ${e.message}`);
+            }
+
+            // Test 3: LinkedInPageAnalyzer
+            try {
+                const analyzer = new LinkedInPageAnalyzer();
+                addTest('LinkedInPageAnalyzer', typeof analyzer.analyzePage === 'function', 'Page analyzer class loads');
+            } catch (e) {
+                addTest('LinkedInPageAnalyzer', false, `Error: ${e.message}`);
+            }
+
+            // Test 4: GoalEngine
+            try {
+                const engine = new GoalEngine();
+                const templates = engine.getGoalTemplates();
+                addTest('GoalEngine', Object.keys(templates).length >= 6, `Found ${Object.keys(templates).length} goal templates`);
+            } catch (e) {
+                addTest('GoalEngine', false, `Error: ${e.message}`);
+            }
+
+            // Test 5: IntelligentExtractor
+            try {
+                const extractor = new IntelligentExtractor();
+                addTest('IntelligentExtractor', typeof extractor.executeStrategy === 'function', 'Intelligent extractor class loads');
+            } catch (e) {
+                addTest('IntelligentExtractor', false, `Error: ${e.message}`);
+            }
+
+            // Summary
+            const allTests = document.querySelectorAll('.test');
+            const passed = document.querySelectorAll('.test.pass').length;
+            const total = allTests.length;
+
+            const summary = document.createElement('div');
+            summary.className = 'card';
+            summary.style.marginTop = '20px';
+            summary.innerHTML = `
+                <h3>Summary: ${passed}/${total} tests passed</h3>
+                ${passed === total ?
+                    '<p style="color: #4caf50;">✅ All components loaded successfully! Your Co-Pilot should work.</p>' :
+                    '<p style="color: #f44336;">❌ Some components failed to load. Please check the error messages above and reload the extension.</p>'
+                }
+            `;
+            output.appendChild(summary);
+        }
+    </script>
+</body>
+</html>

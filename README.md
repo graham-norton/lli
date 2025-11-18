@@ -2,6 +2,28 @@
 
 A powerful Chrome extension that automatically finds LinkedIn posts matching your keywords, extracts contact information (emails and phone numbers), and exports them to Google Sheets.
 
+## 🚀 NEW: Intelligent Co-Pilot Mode
+
+Transform your LinkedIn into an intelligent lead extraction system! The Co-Pilot automatically analyzes any LinkedIn page and extracts leads based on your goals.
+
+### 6 Extraction Goals:
+- **📋 Job Applicants** - Extract applicant profiles and download resumes from your job postings
+- **💬 Comment Mining** - Mine emails and contacts from post comments
+- **❤️ Post Engagement** - Find people who liked/commented on relevant posts
+- **👥 People Discovery** - Extract profiles from search results matching your criteria
+- **🏢 Company Intel** - Gather employee lists and identify decision makers
+- **🔍 Keyword Hunting** - Enhanced keyword-based extraction with AI
+
+**[📖 Read the Complete Co-Pilot Guide →](CO_PILOT_GUIDE.md)**
+
+### Quick Start with Co-Pilot:
+1. Click extension icon → Go to **Co-Pilot** tab
+2. Click **🔍 Analyze Page** to see what can be extracted
+3. Select a goal card (e.g., "💬 Comment Mining")
+4. Click **🚀 Start Co-Pilot** and watch it work!
+
+---
+
 ## Features
 
 - **Keyword Matching**: Monitor LinkedIn feed for posts containing specific keywords
