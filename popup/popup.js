@@ -194,6 +194,14 @@ class PopupController {
       this.settings.autopilotEnabled = e.target.checked;
       this.saveSettings();
     });
+
+    // AI-Driven Mode
+    document.getElementById('start-ai-mode-btn').addEventListener('click', () => this.startAIMode());
+    document.getElementById('stop-ai-mode-btn').addEventListener('click', () => this.stopAIMode());
+    document.getElementById('ai-autopilot-mode').addEventListener('change', (e) => {
+      this.settings.autopilotEnabled = e.target.checked;
+      this.saveSettings();
+    });
   }
 
   setupTabs() {
@@ -896,6 +904,115 @@ class PopupController {
     } catch (error) {
       console.error('Error stopping co-pilot:', error);
       this.showStatus('Error stopping co-pilot', 'error');
+    }
+  }
+
+  // ====== AI-DRIVEN MODE METHODS ======
+
+  async startAIMode() {
+    const userGoal = document.getElementById('ai-goal-input').value.trim();
+    const statusDiv = document.getElementById('ai-mode-status');
+    const startBtn = document.getElementById('start-ai-mode-btn');
+    const stopBtn = document.getElementById('stop-ai-mode-btn');
+
+    if (!userGoal) {
+      statusDiv.innerHTML = '<p class="text-error">⚠️ Please describe what you want to extract</p>';
+      this.showStatus('Please describe your extraction goal', 'error');
+      return;
+    }
+
+    startBtn.disabled = true;
+    startBtn.textContent = '🤖 Analyzing with AI...';
+    statusDiv.innerHTML = '<p class="text-info">🔍 AI is analyzing the page HTML...</p>';
+
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tabs[0]) {
+        throw new Error('No active tab found');
+      }
+
+      // Validate it's a LinkedIn page
+      if (!tabs[0].url || !tabs[0].url.includes('linkedin.com')) {
+        throw new Error('Please navigate to a LinkedIn page first');
+      }
+
+      // Start AI-driven mode
+      const response = await chrome.tabs.sendMessage(tabs[0].id, {
+        type: 'START_AI_MODE',
+        userGoal: userGoal
+      });
+
+      if (response && response.success) {
+        const result = response.result;
+
+        statusDiv.innerHTML = `
+          <div class="text-success">
+            <p><strong>✅ AI Analysis Complete!</strong></p>
+            <p style="font-size: 11px; margin-top: 8px;">
+              <strong>Page Type:</strong> ${result.strategy?.pageType || 'Unknown'}<br>
+              <strong>Extractable Fields:</strong> ${result.strategy?.dataAvailable?.length || 0}<br>
+              <strong>Extraction Steps:</strong> ${result.strategy?.extractionSteps?.length || 0}
+            </p>
+            ${result.strategy?.recommendations ? `<p style="font-size: 10px; margin-top: 8px; color: #666;">${result.strategy.recommendations}</p>` : ''}
+          </div>
+        `;
+
+        startBtn.style.display = 'none';
+        stopBtn.style.display = 'block';
+
+        this.showStatus('AI extraction started successfully');
+      } else {
+        const errorMsg = response?.error || 'Failed to start AI mode';
+        throw new Error(errorMsg);
+      }
+    } catch (error) {
+      console.error('Error starting AI mode:', error);
+
+      // Handle specific error types
+      if (error.message && error.message.includes('Could not establish connection')) {
+        statusDiv.innerHTML = `
+          <p class="text-error">⚠️ Extension not ready</p>
+          <p style="font-size: 11px; margin-top: 8px;">Please <strong>refresh the LinkedIn page</strong> and try again.</p>
+        `;
+        this.showStatus('Please refresh the LinkedIn page', 'error');
+      } else if (error.message && error.message.includes('API key')) {
+        statusDiv.innerHTML = `
+          <p class="text-error">⚠️ OpenRouter API key required</p>
+          <p style="font-size: 11px; margin-top: 8px;">Please configure your API key in the <strong>Automation & AI</strong> tab.</p>
+        `;
+        this.showStatus('API key required', 'error');
+      } else {
+        statusDiv.innerHTML = `<p class="text-error">Error: ${error.message}</p>`;
+        this.showStatus('Error starting AI mode', 'error');
+      }
+
+      startBtn.disabled = false;
+      startBtn.textContent = '🚀 Start AI Extraction';
+    }
+  }
+
+  async stopAIMode() {
+    const statusDiv = document.getElementById('ai-mode-status');
+    const startBtn = document.getElementById('start-ai-mode-btn');
+    const stopBtn = document.getElementById('stop-ai-mode-btn');
+
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs[0]) {
+        await chrome.tabs.sendMessage(tabs[0].id, {
+          type: 'STOP_AI_MODE'
+        });
+      }
+
+      statusDiv.innerHTML = '<p class="text-muted">AI mode is inactive</p>';
+      startBtn.style.display = 'block';
+      startBtn.disabled = false;
+      stopBtn.style.display = 'none';
+
+      this.showStatus('AI mode stopped');
+    } catch (error) {
+      console.error('Error stopping AI mode:', error);
+      this.showStatus('Error stopping AI mode', 'error');
     }
   }
 

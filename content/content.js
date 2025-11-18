@@ -18,6 +18,7 @@ class LinkedInScanner {
       this.pageAnalyzer = new LinkedInPageAnalyzer();
       this.goalEngine = new GoalEngine();
       this.intelligentExtractor = new IntelligentExtractor();
+      this.aiScraper = new AIScraper();
       console.log('✅ Intelligent mode components initialized successfully');
     } catch (error) {
       console.error('❌ Error initializing intelligent mode components:', error);
@@ -25,11 +26,15 @@ class LinkedInScanner {
       this.pageAnalyzer = null;
       this.goalEngine = null;
       this.intelligentExtractor = null;
+      this.aiScraper = null;
     }
 
     this.intelligentMode = false;
+    this.aiDrivenMode = false;
     this.currentGoal = null;
+    this.currentGoalDescription = '';
     this.currentPageAnalysis = null;
+    this.currentAIStrategy = null;
 
     this.stats = {
       totalLeads: 0,
@@ -1011,6 +1016,169 @@ class LinkedInScanner {
     );
   }
 
+  // ====== AI-DRIVEN MODE METHODS ======
+
+  /**
+   * Start AI-driven extraction mode
+   * Uses AI to analyze HTML and generate extraction strategy on the fly
+   * @param {string} userGoal - What the user wants to extract (plain English)
+   */
+  async startAIDrivenMode(userGoal) {
+    console.log('🤖 Starting AI-driven extraction mode');
+    console.log(`User goal: ${userGoal}`);
+
+    if (!this.aiScraper) {
+      throw new Error('AI Scraper not initialized. Please reload the extension.');
+    }
+
+    if (!userGoal || userGoal.trim().length === 0) {
+      throw new Error('Please describe what you want to extract');
+    }
+
+    try {
+      this.aiDrivenMode = true;
+      this.currentGoalDescription = userGoal;
+
+      // Step 1: Capture page context (HTML + metadata)
+      console.log('📸 Capturing page context...');
+      const pageContext = this.aiScraper.capturePageContext();
+      console.log(`Captured ${pageContext.htmlSize} chars of HTML`);
+
+      // Step 2: Generate extraction strategy using AI
+      console.log('🧠 Generating extraction strategy with AI...');
+      const strategy = await this.aiScraper.generateExtractionStrategy(userGoal, pageContext);
+      this.currentAIStrategy = strategy;
+
+      console.log('✅ AI strategy generated:', strategy);
+
+      // Show notification
+      this.showNotification(
+        'AI Analysis Complete',
+        `Page type: ${strategy.pageType}\nFound ${strategy.dataAvailable.length} extractable fields`
+      );
+
+      // Step 3: Execute strategy if autopilot enabled
+      if (this.settings.autopilotEnabled) {
+        console.log('🚀 Autopilot enabled, executing strategy...');
+        await this.executeAIStrategy(strategy);
+      }
+
+      return {
+        success: true,
+        strategy: strategy,
+        pageContext: {
+          url: pageContext.url,
+          title: pageContext.title,
+          htmlSize: pageContext.htmlSize
+        }
+      };
+
+    } catch (error) {
+      console.error('❌ Error starting AI-driven mode:', error);
+      this.aiDrivenMode = false;
+      throw error;
+    }
+  }
+
+  /**
+   * Execute AI-generated extraction strategy
+   * @param {Object} strategy - AI-generated strategy
+   */
+  async executeAIStrategy(strategy) {
+    console.log('⚙️ Executing AI-generated extraction strategy...');
+
+    try {
+      const result = await this.aiScraper.executeStrategy(strategy, {
+        stepDelay: 1000,
+        maxItems: 100
+      });
+
+      if (result.success && result.data.length > 0) {
+        console.log(`✅ AI extraction complete: ${result.count} items extracted`);
+
+        // Process extracted data
+        await this.processAIExtractedData(result.data, strategy);
+
+        this.showNotification(
+          'AI Extraction Complete',
+          `Successfully extracted ${result.count} leads`
+        );
+      } else {
+        console.log('ℹ️ No data extracted');
+        this.showNotification(
+          'No Data Found',
+          'Could not extract any data from this page'
+        );
+      }
+
+      return result;
+
+    } catch (error) {
+      console.error('❌ Error executing AI strategy:', error);
+      this.showNotification(
+        'Extraction Failed',
+        error.message || 'Unknown error occurred'
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Process AI-extracted data and save as leads
+   * @param {Array} data - Extracted data items
+   * @param {Object} strategy - Strategy used for extraction
+   */
+  async processAIExtractedData(data, strategy) {
+    console.log('💾 Processing AI-extracted data:', data.length, 'items');
+
+    for (const item of data) {
+      // Extract emails and phones from the item
+      const allText = Object.values(item).filter(v => typeof v === 'string').join(' ');
+      const extractedContacts = this.extractor.extractAll(allText);
+
+      // Create lead object
+      const lead = {
+        id: `ai_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: item.timestamp || new Date().toISOString(),
+        postUrl: item.sourceUrl || window.location.href,
+        authorName: item.author || item.name || 'Unknown',
+        authorProfile: item.profileUrl || item.authorProfile || '',
+        keywordMatched: [`AI: ${this.currentGoalDescription}`],
+        postContent: item.content || item.postContent || JSON.stringify(item).substring(0, 500),
+        emails: extractedContacts.emails || [],
+        phones: extractedContacts.phones || [],
+        exported: false,
+        aiExtracted: true,
+        aiGoal: this.currentGoalDescription,
+        pageType: strategy.pageType,
+        extractedFields: item
+      };
+
+      // Only save if we found contacts or if user wants all data
+      if (lead.emails.length > 0 || lead.phones.length > 0) {
+        await this.saveLead(lead);
+        this.updateStats({ emails: lead.emails, phones: lead.phones });
+        console.log(`💾 Saved lead: ${lead.authorName} (${lead.emails.length} emails, ${lead.phones.length} phones)`);
+      }
+    }
+  }
+
+  /**
+   * Stop AI-driven mode
+   */
+  stopAIDrivenMode() {
+    console.log('⏹️ Stopping AI-driven mode');
+
+    this.aiDrivenMode = false;
+    this.currentGoalDescription = '';
+    this.currentAIStrategy = null;
+
+    this.showNotification(
+      'AI Mode Stopped',
+      'AI extraction has been stopped'
+    );
+  }
+
   /**
    * Handle page navigation in intelligent mode
    */
@@ -1094,6 +1262,23 @@ class LinkedInScanner {
           sendResponse(result);
         });
         return true;  // Async response
+
+      // AI-driven mode messages
+      case 'START_AI_MODE':
+        this.startAIDrivenMode(message.userGoal)
+          .then(result => {
+            sendResponse({ success: true, result });
+          })
+          .catch(error => {
+            console.error('Error in START_AI_MODE handler:', error);
+            sendResponse({ success: false, error: error.message });
+          });
+        return true;  // Async response
+
+      case 'STOP_AI_MODE':
+        this.stopAIDrivenMode();
+        sendResponse({ success: true });
+        break;
 
       default:
         break;

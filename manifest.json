@@ -36,6 +36,7 @@
         "utils/pageAnalyzer.js",
         "utils/goalEngine.js",
         "utils/intelligentExtractor.js",
+        "utils/aiScraper.js",
         "content/content.js"
       ],
       "css": ["content/content.css"],
