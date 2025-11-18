@@ -745,22 +745,47 @@ async function processNextKeywordInTab() {
 
     // Wait for tab to load
     await waitForTabLoad(tab.id);
+    console.log(`✅ Tab ${tab.id} loaded`);
 
-    // Wait additional time for LinkedIn to render (increased from 3s to 8s)
-    await sleep(8000);
+    // Wait additional time for LinkedIn to render AND content script to initialize
+    console.log('⏳ Waiting 12s for LinkedIn and content script to initialize...');
+    await sleep(12000); // Increased from 8s to 12s
 
-    // Send message to tab to start AI extraction
-    console.log(`🤖 Starting AI extraction in tab ${tab.id}`);
-    const response = await chrome.tabs.sendMessage(tab.id, {
-      type: 'EXTRACT_IN_TAB',
-      userGoal: multiKeywordState.userGoal,
-      keyword: keyword
-    });
+    // Try to send message with retries
+    let response = null;
+    let attempts = 0;
+    const maxAttempts = 3;
 
-    if (response && response.success) {
-      console.log(`✅ Extracted ${response.count || 0} items from keyword: ${keyword}`);
-    } else {
-      console.warn(`⚠️ Extraction failed for keyword: ${keyword}`);
+    while (attempts < maxAttempts && !response) {
+      attempts++;
+      console.log(`🤖 Attempt ${attempts}/${maxAttempts}: Starting AI extraction in tab ${tab.id}`);
+
+      try {
+        response = await chrome.tabs.sendMessage(tab.id, {
+          type: 'EXTRACT_IN_TAB',
+          userGoal: multiKeywordState.userGoal,
+          keyword: keyword
+        });
+
+        if (response && response.success) {
+          console.log(`✅ Extracted ${response.count || 0} items from keyword: ${keyword}`);
+          break;
+        } else {
+          console.warn(`⚠️ Response but no success for keyword: ${keyword}`, response);
+          if (attempts < maxAttempts) {
+            console.log('Waiting 3s before retry...');
+            await sleep(3000);
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Error sending message (attempt ${attempts}):`, error.message);
+        if (attempts < maxAttempts) {
+          console.log('Waiting 3s before retry...');
+          await sleep(3000);
+        } else {
+          throw error;
+        }
+      }
     }
 
     // Close the tab
@@ -778,17 +803,20 @@ async function processNextKeywordInTab() {
 
   } catch (error) {
     console.error(`❌ Error processing keyword "${keyword}":`, error);
+    console.error('Full error:', error.stack);
 
     // Try to close tab if it exists
     if (multiKeywordState.currentTabId) {
       try {
         await chrome.tabs.remove(multiKeywordState.currentTabId);
+        console.log('Tab closed after error');
       } catch (e) {
-        // Tab might already be closed
+        console.error('Error closing tab:', e);
       }
     }
 
     // Continue to next keyword despite error
+    console.log('Moving to next keyword despite error...');
     multiKeywordState.currentIndex++;
     await processNextKeywordInTab();
   }
