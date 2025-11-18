@@ -1426,6 +1426,95 @@ class LinkedInScanner {
   }
 
   /**
+   * Extract data in a new tab (used by tab-based multi-keyword approach)
+   * This method aggressively scrolls and waits to ensure all content is loaded
+   * @param {string} userGoal - What to extract
+   * @param {string} keyword - Current keyword being searched
+   * @returns {Promise<Object>} Extraction result with count
+   */
+  async extractInTab(userGoal, keyword) {
+    console.log(`🤖 Starting extraction in tab for keyword: "${keyword}"`);
+    console.log(`Goal: ${userGoal}`);
+
+    try {
+      if (!this.aiScraper) {
+        throw new Error('AI Scraper not initialized');
+      }
+
+      // AGGRESSIVE SCROLLING - Increased cycles and wait times
+      console.log('📜 Starting aggressive auto-scroll...');
+      const scrollCycles = 15; // Increased from 6 to 15
+      const scrollDelay = 3000; // Increased from 1500ms to 3000ms
+
+      for (let i = 0; i < scrollCycles; i++) {
+        console.log(`Scroll ${i + 1}/${scrollCycles}`);
+
+        // Scroll down
+        window.scrollBy({
+          top: window.innerHeight * 0.9,
+          behavior: 'smooth'
+        });
+
+        // Wait for content to load and render
+        await this.sleep(scrollDelay);
+      }
+
+      // Scroll back to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      await this.sleep(2000);
+
+      // Wait extra time for all content to settle
+      console.log('⏳ Waiting for content to fully settle...');
+      await this.sleep(5000); // Increased from 2000ms to 5000ms
+
+      console.log('📸 Capturing page context...');
+      const pageContext = this.aiScraper.capturePageContext();
+      console.log(`Captured ${pageContext.htmlSize} chars of HTML`);
+
+      // Generate extraction strategy with AI
+      console.log('🧠 Generating extraction strategy with AI...');
+      const strategy = await this.aiScraper.generateExtractionStrategy(
+        userGoal,
+        pageContext
+      );
+
+      console.log(`✅ AI strategy generated: ${strategy.pageType}`);
+      console.log(`Found ${strategy.dataAvailable.length} extractable fields`);
+
+      // Execute extraction
+      console.log('⚙️ Executing extraction strategy...');
+      const result = await this.aiScraper.executeStrategy(strategy, {
+        stepDelay: 1500, // Increased from 1000ms
+        maxItems: 200    // Increased from 100
+      });
+
+      if (result.success && result.data.length > 0) {
+        console.log(`✅ Extracted ${result.count} items`);
+
+        // Process and save data
+        await this.processAIExtractedData(result.data, strategy);
+
+        return {
+          success: true,
+          count: result.count,
+          keyword: keyword
+        };
+      } else {
+        console.log('ℹ️ No data extracted');
+        return {
+          success: true,
+          count: 0,
+          keyword: keyword
+        };
+      }
+
+    } catch (error) {
+      console.error('❌ Error extracting in tab:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Handle page navigation in intelligent mode
    */
   async handleIntelligentPageChange() {
@@ -1545,6 +1634,18 @@ class LinkedInScanner {
           })
           .catch(error => {
             console.error('Error in STOP_MULTI_KEYWORD_AI handler:', error);
+            sendResponse({ success: false, error: error.message });
+          });
+        return true;  // Async response
+
+      // Extract in new tab (tab-based multi-keyword approach)
+      case 'EXTRACT_IN_TAB':
+        this.extractInTab(message.userGoal, message.keyword)
+          .then(result => {
+            sendResponse({ success: true, count: result.count });
+          })
+          .catch(error => {
+            console.error('Error in EXTRACT_IN_TAB handler:', error);
             sendResponse({ success: false, error: error.message });
           });
         return true;  // Async response

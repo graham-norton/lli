@@ -106,6 +106,23 @@ async function handleMessage(message, sender, sendResponse) {
         sendResponse(analysisResult);
         break;
 
+      case 'START_MULTI_KEYWORD_AI_TABS':
+        startMultiKeywordAIWithTabs(
+          message.userGoal,
+          message.keywords,
+          sender.tab.id
+        ).then(result => {
+          sendResponse(result);
+        }).catch(error => {
+          sendResponse({ success: false, error: error.message });
+        });
+        return true;  // Async response
+
+      case 'STOP_MULTI_KEYWORD_AI_TABS':
+        stopMultiKeywordAIWithTabs();
+        sendResponse({ success: true });
+        break;
+
       default:
         sendResponse({ success: false, error: 'Unknown message type' });
     }
@@ -667,6 +684,166 @@ function notifyPopup(message) {
   } catch (error) {
     console.warn('Unable to notify popup:', error);
   }
+}
+
+// Multi-keyword AI with tabs state
+let multiKeywordState = {
+  active: false,
+  userGoal: '',
+  keywords: [],
+  currentIndex: 0,
+  currentTabId: null,
+  originalTabId: null
+};
+
+async function startMultiKeywordAIWithTabs(userGoal, keywords, originalTabId) {
+  console.log('🚀 Starting multi-keyword AI with tabs approach');
+  console.log(`Keywords: ${keywords.length}, Goal: ${userGoal}`);
+
+  multiKeywordState = {
+    active: true,
+    userGoal,
+    keywords,
+    currentIndex: 0,
+    currentTabId: null,
+    originalTabId
+  };
+
+  // Process first keyword
+  await processNextKeywordInTab();
+
+  return { success: true };
+}
+
+async function processNextKeywordInTab() {
+  if (!multiKeywordState.active) {
+    console.log('Multi-keyword mode stopped');
+    return;
+  }
+
+  if (multiKeywordState.currentIndex >= multiKeywordState.keywords.length) {
+    console.log('✅ All keywords processed!');
+    await stopMultiKeywordAIWithTabs(true);
+    return;
+  }
+
+  const keyword = multiKeywordState.keywords[multiKeywordState.currentIndex];
+  console.log(`🔍 Processing keyword ${multiKeywordState.currentIndex + 1}/${multiKeywordState.keywords.length}: "${keyword}"`);
+
+  // Build LinkedIn search URL
+  const searchUrl = `https://www.linkedin.com/search/results/content/?keywords=${encodeURIComponent(keyword)}&origin=GLOBAL_SEARCH_HEADER`;
+
+  try {
+    // Create new tab
+    const tab = await chrome.tabs.create({
+      url: searchUrl,
+      active: false  // Don't switch to the tab
+    });
+
+    multiKeywordState.currentTabId = tab.id;
+    console.log(`📑 Opened new tab ${tab.id} for keyword: ${keyword}`);
+
+    // Wait for tab to load
+    await waitForTabLoad(tab.id);
+
+    // Wait additional time for LinkedIn to render (increased from 3s to 8s)
+    await sleep(8000);
+
+    // Send message to tab to start AI extraction
+    console.log(`🤖 Starting AI extraction in tab ${tab.id}`);
+    const response = await chrome.tabs.sendMessage(tab.id, {
+      type: 'EXTRACT_IN_TAB',
+      userGoal: multiKeywordState.userGoal,
+      keyword: keyword
+    });
+
+    if (response && response.success) {
+      console.log(`✅ Extracted ${response.count || 0} items from keyword: ${keyword}`);
+    } else {
+      console.warn(`⚠️ Extraction failed for keyword: ${keyword}`);
+    }
+
+    // Close the tab
+    await chrome.tabs.remove(tab.id);
+    console.log(`🗑️ Closed tab ${tab.id}`);
+
+    // Wait before next keyword (configurable delay)
+    const settings = await chrome.storage.sync.get(['settings']);
+    const delay = settings.settings?.autoSearchDelay || 5000;
+    await sleep(delay);
+
+    // Move to next keyword
+    multiKeywordState.currentIndex++;
+    await processNextKeywordInTab();
+
+  } catch (error) {
+    console.error(`❌ Error processing keyword "${keyword}":`, error);
+
+    // Try to close tab if it exists
+    if (multiKeywordState.currentTabId) {
+      try {
+        await chrome.tabs.remove(multiKeywordState.currentTabId);
+      } catch (e) {
+        // Tab might already be closed
+      }
+    }
+
+    // Continue to next keyword despite error
+    multiKeywordState.currentIndex++;
+    await processNextKeywordInTab();
+  }
+}
+
+async function stopMultiKeywordAIWithTabs(completed = false) {
+  console.log('⏹️ Stopping multi-keyword AI with tabs');
+
+  // Close current tab if open
+  if (multiKeywordState.currentTabId) {
+    try {
+      await chrome.tabs.remove(multiKeywordState.currentTabId);
+    } catch (error) {
+      // Tab might already be closed
+    }
+  }
+
+  multiKeywordState = {
+    active: false,
+    userGoal: '',
+    keywords: [],
+    currentIndex: 0,
+    currentTabId: null,
+    originalTabId: null
+  };
+
+  // Notify popup
+  notifyPopup({
+    type: 'MULTI_KEYWORD_TABS_STOPPED',
+    completed: completed
+  });
+
+  return { success: true };
+}
+
+function waitForTabLoad(tabId) {
+  return new Promise((resolve) => {
+    const listener = (updatedTabId, changeInfo, tab) => {
+      if (updatedTabId === tabId && changeInfo.status === 'complete') {
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    };
+    chrome.tabs.onUpdated.addListener(listener);
+
+    // Timeout after 30 seconds
+    setTimeout(() => {
+      chrome.tabs.onUpdated.removeListener(listener);
+      resolve();
+    }, 30000);
+  });
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 // Alarm for periodic sync (optional)
