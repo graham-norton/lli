@@ -37,10 +37,32 @@
       <div class="section">
         <h3>What Do You Want to Extract?</h3>
         <textarea id="ai-goal-input" rows="4" placeholder="Example: Extract all people who commented on this post with their names and profile URLs&#10;&#10;Example: Find all job applicants from this job listing and download their resumes&#10;&#10;Example: Get email addresses from everyone who liked or commented on this post"></textarea>
+      </div>
+
+      <div class="section">
+        <h3>🔍 Multi-Keyword Search (Optional)</h3>
+        <p class="section-description" style="font-size: 11px; margin-bottom: 10px;">
+          Add keywords to search automatically across multiple LinkedIn pages. Leave empty to extract from current page only.
+        </p>
 
         <div class="toggle-row">
+          <label for="use-keywords-ai">
+            <input type="checkbox" id="use-keywords-ai" />
+            Enable multi-keyword search
+          </label>
+        </div>
+
+        <div id="ai-keywords-section" style="display: none; margin-top: 10px;">
+          <label style="font-size: 12px; font-weight: 500; color: #333;">Keywords (one per line):</label>
+          <textarea id="ai-keywords-input" rows="3" placeholder="hiring manager&#10;recruiter jobs&#10;software engineer" style="margin-top: 5px;"></textarea>
+          <button id="use-main-keywords-btn" class="btn-secondary" style="margin-top: 8px; font-size: 11px;">📋 Use Keywords from Keywords Tab</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="toggle-row">
           <label for="ai-autopilot-mode">
-            <input type="checkbox" id="ai-autopilot-mode" />
+            <input type="checkbox" id="ai-autopilot-mode" checked />
             Enable Autopilot (automatically execute extraction)
           </label>
         </div>
