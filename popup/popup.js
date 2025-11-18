@@ -98,6 +98,7 @@ class PopupController {
     this.renderSettings();
     this.checkAuthStatus();
     this.initCoPilot();
+    this.initLogger();
   }
 
   async loadData() {
@@ -1135,18 +1136,197 @@ class PopupController {
 
     return typeMap[pageType] || pageType;
   }
+
+  // Logger functionality
+  initLogger() {
+    this.loggerLogs = [];
+    this.loggerContainer = document.getElementById('logger-container');
+
+    // Button event listeners
+    document.getElementById('logger-start-test-btn').addEventListener('click', () => this.startLoggerTest());
+    document.getElementById('logger-copy-btn').addEventListener('click', () => this.copyLoggerLogs());
+    document.getElementById('logger-clear-btn').addEventListener('click', () => this.clearLoggerLogs());
+
+    // Initialize system status
+    this.updateLoggerSystemStatus();
+
+    // Update status indicators
+    document.getElementById('logger-bg-status').style.color = '#28a745';
+    document.getElementById('logger-content-status').style.color = '#28a745';
+  }
+
+  addLoggerEntry(source, message, level = 'info') {
+    const timestamp = new Date().toLocaleTimeString('en-US', {
+      hour12: false,
+      fractionalSecondDigits: 3
+    });
+
+    const log = { timestamp, source, message, level };
+    this.loggerLogs.push(log);
+
+    const entry = document.createElement('div');
+    entry.className = `log-entry log-${level}`;
+    entry.innerHTML = `
+      <span class="log-time">${timestamp}</span>
+      <span class="log-source">[${source}]</span>
+      <span class="log-message">${this.escapeHtml(message)}</span>
+    `;
+
+    this.loggerContainer.appendChild(entry);
+    this.loggerContainer.scrollTop = this.loggerContainer.scrollHeight;
+  }
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  async updateLoggerSystemStatus() {
+    try {
+      // Check API key
+      const { openRouterKey } = await chrome.storage.local.get(['openRouterKey']);
+      const apiKeyStatus = document.getElementById('logger-api-key-status');
+      if (openRouterKey) {
+        apiKeyStatus.textContent = '✓ Configured';
+        apiKeyStatus.style.color = '#28a745';
+      } else {
+        apiKeyStatus.textContent = '✗ Not configured';
+        apiKeyStatus.style.color = '#dc3545';
+      }
+
+      // Check keywords
+      const { keywords = [] } = await chrome.storage.sync.get(['keywords']);
+      document.getElementById('logger-keywords-count').textContent = keywords.length;
+
+      // Check Google Sheets
+      const { sheetId, googleToken } = await chrome.storage.local.get(['sheetId', 'googleToken']);
+      const sheetsStatus = document.getElementById('logger-sheets-status');
+      if (sheetId && googleToken) {
+        sheetsStatus.textContent = '✓ Configured';
+        sheetsStatus.style.color = '#28a745';
+      } else {
+        sheetsStatus.textContent = '✗ Not configured';
+        sheetsStatus.style.color = '#dc3545';
+      }
+    } catch (error) {
+      console.error('Error updating logger system status:', error);
+    }
+  }
+
+  async startLoggerTest() {
+    this.addLoggerEntry('TEST', 'Starting AI extraction test...', 'info');
+
+    try {
+      // Update extraction status
+      document.getElementById('logger-extraction-status').style.color = '#ffc107';
+
+      // Get active tab
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const tab = tabs[0];
+
+      if (!tab.url.includes('linkedin.com')) {
+        this.addLoggerEntry('TEST', 'Please navigate to a LinkedIn page first', 'warning');
+        document.getElementById('logger-extraction-status').style.color = '#dc3545';
+        return;
+      }
+
+      // Try to ping content script
+      try {
+        await chrome.tabs.sendMessage(tab.id, { type: 'PING' });
+        this.addLoggerEntry('TEST', 'Content script responded successfully', 'success');
+        document.getElementById('logger-content-status').style.color = '#28a745';
+      } catch (error) {
+        this.addLoggerEntry('TEST', `Content script not responding: ${error.message}`, 'error');
+        document.getElementById('logger-content-status').style.color = '#dc3545';
+        document.getElementById('logger-extraction-status').style.color = '#dc3545';
+        return;
+      }
+
+      // Start test extraction
+      this.addLoggerEntry('TEST', 'Sending extraction request to background script...', 'info');
+      const result = await chrome.runtime.sendMessage({
+        type: 'START_MULTI_KEYWORD_AI_TABS',
+        userGoal: 'Extract names and emails from posts (TEST)',
+        keywords: ['test']
+      });
+
+      if (result.success) {
+        this.addLoggerEntry('TEST', 'Test extraction started successfully', 'success');
+        document.getElementById('logger-extraction-status').style.color = '#28a745';
+      } else {
+        this.addLoggerEntry('TEST', `Test failed: ${result.error}`, 'error');
+        document.getElementById('logger-extraction-status').style.color = '#dc3545';
+      }
+    } catch (error) {
+      this.addLoggerEntry('TEST', `Error: ${error.message}`, 'error');
+      document.getElementById('logger-extraction-status').style.color = '#dc3545';
+    }
+  }
+
+  copyLoggerLogs() {
+    const logText = this.loggerLogs.map(log =>
+      `[${log.timestamp}] [${log.source}] ${log.message}`
+    ).join('\n');
+
+    const fullReport = `
+=== AI EXTRACTOR DEBUG REPORT ===
+Generated: ${new Date().toISOString()}
+
+=== STATUS ===
+API Key: ${document.getElementById('logger-api-key-status').textContent}
+Keywords: ${document.getElementById('logger-keywords-count').textContent}
+Sheets: ${document.getElementById('logger-sheets-status').textContent}
+Total Logs: ${this.loggerLogs.length}
+
+=== LOGS ===
+${logText}
+
+=== END REPORT ===
+    `.trim();
+
+    navigator.clipboard.writeText(fullReport).then(() => {
+      this.addLoggerEntry('LOGGER', 'Logs copied to clipboard!', 'success');
+      this.showStatus('Logs copied to clipboard');
+    }).catch(error => {
+      this.addLoggerEntry('LOGGER', `Failed to copy: ${error.message}`, 'error');
+      this.showStatus('Failed to copy logs', 'error');
+    });
+  }
+
+  clearLoggerLogs() {
+    this.loggerLogs = [];
+    this.loggerContainer.innerHTML = `
+      <div class="log-entry log-info">
+        <span class="log-time">--:--:--.---</span>
+        <span class="log-source">[LOGGER]</span>
+        <span class="log-message">Logger cleared. Waiting for logs...</span>
+      </div>
+    `;
+    this.addLoggerEntry('LOGGER', 'Logs cleared', 'info');
+    document.getElementById('logger-extraction-status').style.color = '#6c757d';
+  }
 }
+
+// Global popup instance for message listener
+let popupInstance = null;
 
 // Initialize popup
 document.addEventListener('DOMContentLoaded', () => {
-  new PopupController();
+  popupInstance = new PopupController();
 });
 
 // Listen for updates from background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'STATS_UPDATED') {
-    const popup = new PopupController();
-    popup.stats = message.stats;
-    popup.renderStats();
+    if (popupInstance) {
+      popupInstance.stats = message.stats;
+      popupInstance.renderStats();
+    }
+  } else if (message.type === 'LOG') {
+    // Handle log messages from background script
+    if (popupInstance && popupInstance.addLoggerEntry) {
+      popupInstance.addLoggerEntry('BACKGROUND', message.message, message.level || 'info');
+    }
   }
 });

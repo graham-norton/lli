@@ -1544,6 +1544,10 @@ class LinkedInScanner {
 
   handleMessage(message, sender, sendResponse) {
     switch (message.type) {
+      case 'PING':
+        sendResponse({ success: true, message: 'Content script loaded' });
+        break;
+
       case 'KEYWORDS_UPDATED':
         this.keywords = message.keywords;
         this.matcher.setKeywords(this.keywords);

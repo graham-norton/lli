@@ -632,3 +632,143 @@ input[type="password"]:focus {
     font-size: 28px;
   }
 }
+
+/* Logger Styles */
+.logger-status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 15px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.logger-status-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.logger-status-label {
+  font-size: 11px;
+  color: #666;
+  font-weight: 500;
+}
+
+.logger-status-value {
+  font-size: 20px;
+  color: #28a745;
+}
+
+.logger-system-status {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 15px;
+}
+
+.logger-system-item {
+  font-size: 12px;
+  padding: 4px 0;
+  color: #555;
+}
+
+.logger-system-item strong {
+  color: #333;
+  min-width: 100px;
+  display: inline-block;
+}
+
+.logger-container {
+  background: #1e1e1e;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 10px;
+  height: 300px;
+  overflow-y: auto;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  margin-top: 15px;
+}
+
+.log-entry {
+  padding: 4px 6px;
+  margin-bottom: 2px;
+  border-radius: 3px;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.log-time {
+  color: #888;
+  font-size: 10px;
+  min-width: 75px;
+  flex-shrink: 0;
+}
+
+.log-source {
+  color: #5bc0de;
+  font-weight: bold;
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+.log-message {
+  color: #fff;
+  flex: 1;
+  word-break: break-word;
+}
+
+.log-entry.log-info {
+  background: rgba(91, 192, 222, 0.1);
+}
+
+.log-entry.log-info .log-message {
+  color: #5bc0de;
+}
+
+.log-entry.log-success {
+  background: rgba(92, 184, 92, 0.1);
+}
+
+.log-entry.log-success .log-message {
+  color: #5cb85c;
+}
+
+.log-entry.log-warning {
+  background: rgba(240, 173, 78, 0.1);
+}
+
+.log-entry.log-warning .log-message {
+  color: #f0ad4e;
+}
+
+.log-entry.log-error {
+  background: rgba(217, 83, 79, 0.1);
+}
+
+.log-entry.log-error .log-message {
+  color: #d9534f;
+}
+
+.logger-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.logger-container::-webkit-scrollbar-track {
+  background: #2d2d2d;
+  border-radius: 4px;
+}
+
+.logger-container::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
+
+.logger-container::-webkit-scrollbar-thumb:hover {
+  background: #777;
+}
