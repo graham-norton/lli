@@ -202,6 +202,18 @@ class PopupController {
       this.settings.autopilotEnabled = e.target.checked;
       this.saveSettings();
     });
+
+    // Multi-keyword AI toggle
+    document.getElementById('use-keywords-ai').addEventListener('change', (e) => {
+      const keywordsSection = document.getElementById('ai-keywords-section');
+      keywordsSection.style.display = e.target.checked ? 'block' : 'none';
+    });
+
+    // Use main keywords button
+    document.getElementById('use-main-keywords-btn').addEventListener('click', () => {
+      const keywordsText = this.keywords.join('\n');
+      document.getElementById('ai-keywords-input').value = keywordsText;
+    });
   }
 
   setupTabs() {
@@ -914,6 +926,7 @@ class PopupController {
     const statusDiv = document.getElementById('ai-mode-status');
     const startBtn = document.getElementById('start-ai-mode-btn');
     const stopBtn = document.getElementById('stop-ai-mode-btn');
+    const useKeywords = document.getElementById('use-keywords-ai').checked;
 
     if (!userGoal) {
       statusDiv.innerHTML = '<p class="text-error">⚠️ Please describe what you want to extract</p>';
@@ -921,6 +934,13 @@ class PopupController {
       return;
     }
 
+    // Check if multi-keyword mode
+    if (useKeywords) {
+      await this.startMultiKeywordAIMode(userGoal);
+      return;
+    }
+
+    // Single-page AI mode
     startBtn.disabled = true;
     startBtn.textContent = '🤖 Analyzing with AI...';
     statusDiv.innerHTML = '<p class="text-info">🔍 AI is analyzing the page HTML...</p>';
@@ -991,6 +1011,88 @@ class PopupController {
     }
   }
 
+  async startMultiKeywordAIMode(userGoal) {
+    const statusDiv = document.getElementById('ai-mode-status');
+    const startBtn = document.getElementById('start-ai-mode-btn');
+    const stopBtn = document.getElementById('stop-ai-mode-btn');
+    const keywordsInput = document.getElementById('ai-keywords-input').value.trim();
+
+    if (!keywordsInput) {
+      statusDiv.innerHTML = '<p class="text-error">⚠️ Please add keywords for multi-keyword search</p>';
+      this.showStatus('Please add keywords', 'error');
+      return;
+    }
+
+    // Parse keywords (one per line)
+    const keywords = keywordsInput.split('\n')
+      .map(k => k.trim())
+      .filter(k => k.length > 0);
+
+    if (keywords.length === 0) {
+      statusDiv.innerHTML = '<p class="text-error">⚠️ Please add at least one keyword</p>';
+      this.showStatus('Please add keywords', 'error');
+      return;
+    }
+
+    startBtn.disabled = true;
+    startBtn.textContent = '🚀 Starting...';
+    statusDiv.innerHTML = `<p class="text-info">🔍 Starting multi-keyword AI extraction...</p>`;
+
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tabs[0]) {
+        throw new Error('No active tab found');
+      }
+
+      // Start multi-keyword AI mode
+      const response = await chrome.tabs.sendMessage(tabs[0].id, {
+        type: 'START_MULTI_KEYWORD_AI',
+        userGoal: userGoal,
+        keywords: keywords
+      });
+
+      if (response && response.success) {
+        statusDiv.innerHTML = `
+          <div class="text-success">
+            <p><strong>✅ Multi-Keyword AI Mode Started!</strong></p>
+            <p style="font-size: 11px; margin-top: 8px;">
+              <strong>Keywords:</strong> ${keywords.length}<br>
+              <strong>Goal:</strong> ${userGoal.substring(0, 50)}${userGoal.length > 50 ? '...' : ''}<br>
+              <strong>Status:</strong> Searching and extracting...
+            </p>
+            <p style="font-size: 10px; margin-top: 8px; color: #666;">
+              The extension will automatically navigate through each keyword, scroll, analyze with AI, and extract leads. This may take several minutes.
+            </p>
+          </div>
+        `;
+
+        startBtn.style.display = 'none';
+        stopBtn.style.display = 'block';
+
+        this.showStatus(`Multi-keyword AI mode started (${keywords.length} keywords)`);
+      } else {
+        const errorMsg = response?.error || 'Failed to start multi-keyword AI mode';
+        throw new Error(errorMsg);
+      }
+    } catch (error) {
+      console.error('Error starting multi-keyword AI mode:', error);
+
+      if (error.message && error.message.includes('Could not establish connection')) {
+        statusDiv.innerHTML = `
+          <p class="text-error">⚠️ Extension not ready</p>
+          <p style="font-size: 11px; margin-top: 8px;">Please <strong>refresh the LinkedIn page</strong> and try again.</p>
+        `;
+        this.showStatus('Please refresh the LinkedIn page', 'error');
+      } else {
+        statusDiv.innerHTML = `<p class="text-error">Error: ${error.message}</p>`;
+        this.showStatus('Error starting multi-keyword AI mode', 'error');
+      }
+
+      startBtn.disabled = false;
+      startBtn.textContent = '🚀 Start AI Extraction';
+    }
+  }
+
   async stopAIMode() {
     const statusDiv = document.getElementById('ai-mode-status');
     const startBtn = document.getElementById('start-ai-mode-btn');
@@ -999,14 +1101,19 @@ class PopupController {
     try {
       const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tabs[0]) {
+        // Stop both single-page and multi-keyword modes
         await chrome.tabs.sendMessage(tabs[0].id, {
           type: 'STOP_AI_MODE'
+        });
+        await chrome.tabs.sendMessage(tabs[0].id, {
+          type: 'STOP_MULTI_KEYWORD_AI'
         });
       }
 
       statusDiv.innerHTML = '<p class="text-muted">AI mode is inactive</p>';
       startBtn.style.display = 'block';
       startBtn.disabled = false;
+      startBtn.textContent = '🚀 Start AI Extraction';
       stopBtn.style.display = 'none';
 
       this.showStatus('AI mode stopped');

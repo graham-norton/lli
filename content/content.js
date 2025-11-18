@@ -36,6 +36,12 @@ class LinkedInScanner {
     this.currentPageAnalysis = null;
     this.currentAIStrategy = null;
 
+    // Multi-keyword AI mode state
+    this.aiMultiKeywordMode = false;
+    this.aiKeywords = [];
+    this.aiCurrentKeywordIndex = 0;
+    this.aiKeywordStateKey = 'llfAIKeywordState';
+
     this.stats = {
       totalLeads: 0,
       emailsFound: 0,
@@ -117,6 +123,11 @@ class LinkedInScanner {
     if (this.settings.highlightPosts) {
       this.showStatsCounter();
     }
+
+    // Check if we should resume multi-keyword AI mode
+    this.resumeAIKeywordMode().catch(err => {
+      console.error('Failed to resume AI keyword mode:', err);
+    });
 
     // Attempt initial scan (will log if keywords missing/manual mode)
     this.runScanIfReady();
@@ -1179,6 +1190,241 @@ class LinkedInScanner {
     );
   }
 
+  // ====== MULTI-KEYWORD AI MODE METHODS ======
+
+  /**
+   * Start multi-keyword AI mode
+   * Cycles through keywords, navigating LinkedIn search and extracting with AI
+   * @param {string} userGoal - What to extract (plain English)
+   * @param {Array<string>} keywords - List of keywords to search
+   */
+  async startMultiKeywordAIMode(userGoal, keywords) {
+    console.log('🚀 Starting multi-keyword AI mode');
+    console.log(`Goal: ${userGoal}`);
+    console.log(`Keywords: ${keywords.join(', ')}`);
+
+    if (!keywords || keywords.length === 0) {
+      throw new Error('Please provide at least one keyword');
+    }
+
+    this.aiMultiKeywordMode = true;
+    this.aiDrivenMode = true;
+    this.currentGoalDescription = userGoal;
+    this.aiKeywords = keywords;
+    this.aiCurrentKeywordIndex = 0;
+
+    // Save state to storage for persistence across page loads
+    await this.saveAIKeywordState();
+
+    // Start with first keyword
+    await this.processNextAIKeyword();
+  }
+
+  /**
+   * Save AI keyword state to storage
+   */
+  async saveAIKeywordState() {
+    const state = {
+      active: this.aiMultiKeywordMode,
+      userGoal: this.currentGoalDescription,
+      keywords: this.aiKeywords,
+      currentIndex: this.aiCurrentKeywordIndex,
+      timestamp: Date.now()
+    };
+
+    await chrome.storage.local.set({ [this.aiKeywordStateKey]: state });
+    console.log('💾 Saved AI keyword state:', state);
+  }
+
+  /**
+   * Load AI keyword state from storage
+   */
+  async loadAIKeywordState() {
+    try {
+      const data = await chrome.storage.local.get([this.aiKeywordStateKey]);
+      const state = data[this.aiKeywordStateKey];
+
+      if (!state || !state.active) {
+        return null;
+      }
+
+      // Check if state is stale (older than 1 hour)
+      const oneHour = 60 * 60 * 1000;
+      if (Date.now() - state.timestamp > oneHour) {
+        console.log('⏰ AI keyword state is stale, clearing...');
+        await this.clearAIKeywordState();
+        return null;
+      }
+
+      return state;
+    } catch (error) {
+      console.error('Error loading AI keyword state:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Clear AI keyword state
+   */
+  async clearAIKeywordState() {
+    await chrome.storage.local.remove([this.aiKeywordStateKey]);
+  }
+
+  /**
+   * Resume AI keyword mode from saved state (called on page load)
+   */
+  async resumeAIKeywordMode() {
+    const state = await this.loadAIKeywordState();
+
+    if (!state) {
+      return false;
+    }
+
+    console.log('🔄 Resuming multi-keyword AI mode from state');
+    this.aiMultiKeywordMode = true;
+    this.aiDrivenMode = true;
+    this.currentGoalDescription = state.userGoal;
+    this.aiKeywords = state.keywords;
+    this.aiCurrentKeywordIndex = state.currentIndex;
+
+    // Wait for page to fully load before processing
+    if (document.readyState === 'loading') {
+      await new Promise(resolve => {
+        document.addEventListener('DOMContentLoaded', resolve);
+      });
+    }
+
+    // Wait a bit more for LinkedIn to render
+    await this.sleep(3000);
+
+    // Process current page with AI
+    await this.processCurrentPageWithAI();
+
+    return true;
+  }
+
+  /**
+   * Process next keyword in the list
+   */
+  async processNextAIKeyword() {
+    if (this.aiCurrentKeywordIndex >= this.aiKeywords.length) {
+      console.log('✅ All keywords processed!');
+      await this.stopMultiKeywordAIMode(true);
+      return;
+    }
+
+    const keyword = this.aiKeywords[this.aiCurrentKeywordIndex];
+    console.log(`🔍 Processing keyword ${this.aiCurrentKeywordIndex + 1}/${this.aiKeywords.length}: "${keyword}"`);
+
+    // Show notification
+    this.showNotification(
+      'AI Multi-Keyword Mode',
+      `Searching keyword ${this.aiCurrentKeywordIndex + 1}/${this.aiKeywords.length}: ${keyword}`
+    );
+
+    // Navigate to keyword search
+    await this.navigateToKeyword(keyword);
+
+    // State will be resumed when page loads
+  }
+
+  /**
+   * Process current page with AI extraction
+   */
+  async processCurrentPageWithAI() {
+    try {
+      console.log('🤖 Processing current page with AI...');
+
+      // Auto-scroll to load more content if enabled
+      if (this.settings.autoScrollEnabled) {
+        console.log('📜 Auto-scrolling to load more content...');
+        await this.autoScrollAndScan();
+
+        // Wait a bit for content to settle
+        await this.sleep(2000);
+      }
+
+      // Capture page context
+      const pageContext = this.aiScraper.capturePageContext();
+      console.log(`📸 Captured page: ${pageContext.htmlSize} chars`);
+
+      // Generate extraction strategy with AI
+      const strategy = await this.aiScraper.generateExtractionStrategy(
+        this.currentGoalDescription,
+        pageContext
+      );
+
+      this.currentAIStrategy = strategy;
+      console.log('✅ AI strategy generated:', strategy.pageType);
+
+      // Execute extraction
+      const result = await this.aiScraper.executeStrategy(strategy, {
+        stepDelay: 1000,
+        maxItems: 100
+      });
+
+      if (result.success && result.data.length > 0) {
+        console.log(`✅ Extracted ${result.count} items from this page`);
+        await this.processAIExtractedData(result.data, strategy);
+
+        this.showNotification(
+          'Extraction Complete',
+          `Found ${result.count} items for keyword: ${this.aiKeywords[this.aiCurrentKeywordIndex]}`
+        );
+      } else {
+        console.log('ℹ️ No data extracted from this page');
+      }
+
+      // Move to next keyword after delay
+      await this.sleep(this.settings.autoSearchDelay || 5000);
+
+      this.aiCurrentKeywordIndex++;
+      await this.saveAIKeywordState();
+      await this.processNextAIKeyword();
+
+    } catch (error) {
+      console.error('❌ Error processing page with AI:', error);
+
+      // Continue to next keyword even if one fails
+      this.aiCurrentKeywordIndex++;
+      await this.saveAIKeywordState();
+      await this.processNextAIKeyword();
+    }
+  }
+
+  /**
+   * Stop multi-keyword AI mode
+   */
+  async stopMultiKeywordAIMode(completed = false) {
+    console.log('⏹️ Stopping multi-keyword AI mode');
+
+    this.aiMultiKeywordMode = false;
+    this.aiDrivenMode = false;
+    this.currentGoalDescription = '';
+    this.currentAIStrategy = null;
+    this.aiKeywords = [];
+    this.aiCurrentKeywordIndex = 0;
+
+    await this.clearAIKeywordState();
+
+    const message = completed
+      ? 'All keywords processed successfully!'
+      : 'Multi-keyword AI mode stopped';
+
+    this.showNotification(
+      completed ? 'AI Mode Complete' : 'AI Mode Stopped',
+      message
+    );
+
+    // Notify popup
+    chrome.runtime.sendMessage({
+      type: 'AI_MULTI_KEYWORD_STOPPED',
+      completed: completed
+    }, () => {
+      void chrome.runtime.lastError; // Suppress errors if popup closed
+    });
+  }
+
   /**
    * Handle page navigation in intelligent mode
    */
@@ -1279,6 +1525,29 @@ class LinkedInScanner {
         this.stopAIDrivenMode();
         sendResponse({ success: true });
         break;
+
+      // Multi-keyword AI mode messages
+      case 'START_MULTI_KEYWORD_AI':
+        this.startMultiKeywordAIMode(message.userGoal, message.keywords)
+          .then(() => {
+            sendResponse({ success: true });
+          })
+          .catch(error => {
+            console.error('Error in START_MULTI_KEYWORD_AI handler:', error);
+            sendResponse({ success: false, error: error.message });
+          });
+        return true;  // Async response
+
+      case 'STOP_MULTI_KEYWORD_AI':
+        this.stopMultiKeywordAIMode(false)
+          .then(() => {
+            sendResponse({ success: true });
+          })
+          .catch(error => {
+            console.error('Error in STOP_MULTI_KEYWORD_AI handler:', error);
+            sendResponse({ success: false, error: error.message });
+          });
+        return true;  // Async response
 
       default:
         break;
